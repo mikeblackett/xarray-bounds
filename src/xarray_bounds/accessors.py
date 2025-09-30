@@ -9,7 +9,7 @@ import xarray as xr
 from xarray_bounds.exceptions import NotYetImplementedError
 from xarray_bounds.helpers import infer_bounds
 from xarray_bounds.types import AxisKey, ClosedSide
-from xarray_bounds.utils import resolve_dim, mapping_or_kwargs
+from xarray_bounds.utilities import resolve_dim_name, mapping_or_kwargs
 
 __all__ = ['DataArrayBounds', 'DatasetBounds']
 
@@ -118,7 +118,7 @@ class Bounds[T: (xr.Dataset, xr.DataArray)](Mapping[str, xr.DataArray]):
             # default to all missing axes
             keys = set(self._obj.cf.axes) - set(self.axes)
         # normalize keys to variable names
-        dims = {resolve_dim(obj=dataset, key=key) for key in keys}
+        dims = {resolve_dim_name(obj=dataset, key=key) for key in keys}
         coords = {}
         for dim in dims:
             _bounds = infer_bounds(
@@ -193,7 +193,7 @@ class Bounds[T: (xr.Dataset, xr.DataArray)](Mapping[str, xr.DataArray]):
         midpoint = interval.mid
         if isinstance(midpoint, pd.DatetimeIndex):
             midpoint = midpoint.normalize()  # pyright: ignore[reportAttributeAccessIssue]
-        dim = resolve_dim(obj=self._obj, key=key)
+        dim = resolve_dim_name(obj=self._obj, key=key)
         return xr.DataArray(
             data=midpoint,
             dims=(dim,),

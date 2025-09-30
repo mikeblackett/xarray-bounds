@@ -4,7 +4,7 @@ from typing import Any, cast
 import xarray as xr
 
 
-def resolve_dim(obj: xr.Dataset | xr.DataArray, key: str) -> str:
+def resolve_dim_name(obj: xr.Dataset | xr.DataArray, key: str) -> str:
     """Resolve a dimension name from an axis key.
 
     The key can be a dimension name or any key understood by ``cf-xarray``.
@@ -29,12 +29,13 @@ def resolve_dim(obj: xr.Dataset | xr.DataArray, key: str) -> str:
     if key in obj.dims:
         return key
     try:
-        # There should only be one dimension for each axis...
-        (dim,) = [v for v in obj.cf.axes[key] if v in obj.dims]
-        if not dim:
+        # cf-xarray will raise if the key is not found...
+        dim = obj.cf[key].name
+        # but it might find a variable that is not a dimension...
+        if dim not in obj.dims:
             raise KeyError
-    except KeyError as error:
-        raise KeyError(f'No dimension found for key {key!r}. ') from error
+    except KeyError:
+        raise KeyError(f'No dimension found for key {key!r}.')
     return dim
 
 
