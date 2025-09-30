@@ -12,7 +12,12 @@ from xarray_bounds.types import (
     ClosedSide,
 )
 
-__all__ = ['datetime_to_interval', 'infer_bounds']
+__all__ = [
+    'datetime_to_interval',
+    'index_to_interval',
+    'infer_bounds',
+    'infer_interval',
+]
 
 
 def datetime_to_interval(
@@ -22,13 +27,11 @@ def datetime_to_interval(
     closed: IntervalClosed | None = None,
     normalize: bool = True,
 ) -> pd.IntervalIndex:
-    """
-    Return an interval index representing the vertices of the boundaries of
-    each datetime in the index.
+    """Return an interval index from a datetime index with a regular frequency.
 
-    This function is useful when a datetime index does not represent point
-    values, but rather intervals of time. For example, the index may represent
-    a time axis for consecutive months whose values contain monthly means.
+    This function is useful when the labels of a datetime index represent
+    intervals--rather than instants--in time. For example, the index may
+    represent a time axis for consecutive months whose values contain monthly means.
 
     The intervals can be thought of as the bins that would be used to create
     the input index when using a pandas/xarray `resample` operation with the
@@ -40,12 +43,12 @@ def datetime_to_interval(
         The datetime index to infer bounds for.
     label : Literal['left', 'middle', 'right'], optional
         Which bin edge or midpoint the index labels.
-        The default is ‘left’ for all frequency offsets except for ‘ME’, ‘YE’,
-        ‘QE’, and ‘W’ which all have a default of ‘right’.
+        The default is ‘left’ for all frequencies except for ‘ME’, ‘YE’,
+        ‘QE’, and ‘W’ which have a default of ‘right’.
     closed : Literal['left', 'right'], optional
         Which side of bin interval is closed.
-        The default is ‘left’ for all frequency offsets except for ‘ME’, ‘YE’,
-        ‘QE’, and ‘W’ which all have a default of ‘right’.
+        The default is ‘left’ for all frequencies except for ‘ME’, ‘YE’,
+        ‘QE’, and ‘W’ which have a default of ‘right’.
     normalize : bool, default True
         If True, the bounds will be normalized to midnight.
 
@@ -60,8 +63,6 @@ def datetime_to_interval(
         If the index is not a datetime index.
     ValueError
         If a regular frequency cannot be inferred from the index.
-    ValueError
-        If the passed frequency does not conform to the index frequency.
 
     See Also
     --------
@@ -117,7 +118,7 @@ def infer_bounds(
     closed: IntervalClosed | None = None,
     label: IntervalLabel | None = None,
 ) -> xr.DataArray:
-    """Infer bounds for an 1D coordinate.
+    """Infer bounds for a 1D coordinate.
 
     Parameters
     ----------
@@ -146,11 +147,10 @@ def infer_bounds(
         )
     dim = obj.dims[0]
     index = obj.to_index()
-    interval = _infer_interval(index=index, closed=closed, label=label)
+    interval = infer_interval(index=index, closed=closed, label=label)
     data = np.stack(arrays=(interval.left, interval.right), axis=1)
     name = f'{dim}_bounds'
     coord = obj.assign_attrs(bounds=name)
-
     return xr.DataArray(
         name=name,
         data=data,
@@ -160,13 +160,13 @@ def infer_bounds(
     )
 
 
-def _infer_interval(
+def infer_interval(
     index: pd.Index,
     *,
     closed: IntervalClosed | None = None,
     label: IntervalLabel | None = None,
 ) -> pd.IntervalIndex:
-    """Infer an interval index from a Pandas index.
+    """Infer an interval index from a pandas index.
 
     If the index is a datetime index with a regular frequency, the bounds are
     inferred from the frequency. Otherwise, the bounds are inferred assuming
@@ -188,7 +188,7 @@ def _infer_interval(
     """
     if is_datetime_index(index):
         try:
-            # First try to infer bounds from frequency
+            # Try first to infer bounds from frequency
             interval = datetime_to_interval(
                 index=index, closed=closed, label=label
             )
@@ -198,19 +198,18 @@ def _infer_interval(
                 'Failed to infer bounds from datetime index frequency, '
                 'falling back to midpoint inference.'
             )
-            return _midpoint_to_interval(index=index, closed=closed)
+            return midpoint_to_interval(index=index, closed=closed)
         else:
             return interval
-    return _index_to_interval(index=index, label=label, closed=closed)
+    return index_to_interval(index=index, label=label, closed=closed)
 
 
-def _index_to_interval(
+def index_to_interval(
     index: pd.Index,
     label: IntervalLabel | None = None,
     closed: IntervalClosed | None = None,
 ) -> pd.IntervalIndex:
-    """
-    Return an interval index representing the bounds of an index.
+    """Return an interval index representing the bounds of an index.
 
     Parameters
     ----------
@@ -227,7 +226,7 @@ def _index_to_interval(
         The interval index representing the bounds.
     """
     if label == 'middle':
-        return _midpoint_to_interval(index=index, closed=closed)
+        return midpoint_to_interval(index=index, closed=closed)
     label = label or 'left'
     closed = closed or label
     step = np.diff(index).mean()
@@ -238,7 +237,7 @@ def _index_to_interval(
     return pd.IntervalIndex.from_breaks(breaks=index, closed=closed)
 
 
-def _midpoint_to_interval(
+def midpoint_to_interval(
     index: pd.Index | np.ndarray,
     closed: IntervalClosed | None = None,
 ) -> pd.IntervalIndex:
