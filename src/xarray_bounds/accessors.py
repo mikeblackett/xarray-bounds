@@ -172,12 +172,7 @@ class Bounds[T: (xr.Dataset, xr.DataArray)](Mapping[str, xr.DataArray]):
         """
         bounds = self[key]
         attr = bounds.attrs.get('closed', 'left')
-        try:
-            closed = ClosedSide(attr)
-        except ValueError:
-            raise ValueError(
-                f"Invalid closed attr: {attr}. Must be 'left' or 'right'; got {attr}"
-            )
+        closed = ClosedSide(attr)
         return pd.IntervalIndex.from_arrays(
             *bounds.values.transpose(), closed=closed.value
         )
