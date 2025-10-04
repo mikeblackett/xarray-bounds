@@ -76,6 +76,16 @@ class Bounds[T: (xr.Dataset, xr.DataArray)](Mapping[str, xr.DataArray]):
         """Set of dimension names for which bounds are defined."""
         return {k for k in self._obj.cf.bounds if k in self._obj.dims}
 
+    def infer_bounds(
+        self,
+        key: str,
+        closed: Literal['left', 'right'] | None = None,
+        label: Literal['left', 'middle', 'right'] | None = None,
+    ):
+        dataset = self._obj.copy()
+        dim = resolve_dim_name(obj=dataset, key=key)
+        return infer_bounds(obj=dataset[dim], closed=closed, label=label)
+
     def add_bounds(
         self,
         *key_args: str,
@@ -117,8 +127,6 @@ class Bounds[T: (xr.Dataset, xr.DataArray)](Mapping[str, xr.DataArray]):
         if not keys:
             # default to all missing axes
             keys = set(self._obj.cf.axes) - set(self.axes)
-        # normalize keys to variable names
-        dims = {resolve_dim_name(obj=dataset, key=key) for key in keys}
         coords = {}
         for dim in dims:
             _bounds = infer_bounds(
