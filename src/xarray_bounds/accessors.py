@@ -128,10 +128,10 @@ class Bounds[T: (xr.Dataset, xr.DataArray)](Mapping[str, xr.DataArray]):
             # default to all missing axes
             keys = set(self._obj.cf.axes) - set(self.axes)
         coords = {}
-        for dim in dims:
-            _bounds = infer_bounds(
-                obj=dataset[dim], closed=closed, label=label
-            )
+        for key in keys:
+            if key in dataset.bounds:
+                raise KeyError(f'Bounds already exist for dimension: {key!r}')
+            _bounds = self.infer_bounds(key=key, closed=closed, label=label)
             coords.update({_bounds.name: _bounds})
         return dataset.assign_coords(coords)
 
