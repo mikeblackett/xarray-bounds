@@ -160,7 +160,7 @@ class Bounds[T: (xr.Dataset, xr.DataArray)](Mapping[str, xr.DataArray]):
             obj[dim].attrs['bounds'] = bounds_name
         return obj
 
-    def to_index(self, key: str) -> pd.IntervalIndex:
+    def to_interval(self, key: str) -> pd.IntervalIndex:
         """Return the specified bounds as a ``pandas.IntervalIndex``.
 
         The closed side of the interval is determined by the `closed` attribute
