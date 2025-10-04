@@ -7,11 +7,10 @@ their coordinate name or by their corresponding CF axis key.
 """
 
 from xarray_bounds.accessors import DataArrayBounds, DatasetBounds
-from xarray_bounds.helpers import infer_bounds, datetime_to_interval
+from xarray_bounds import helpers
 
 __all__ = [
     'DataArrayBounds',
     'DatasetBounds',
-    'infer_bounds',
-    'datetime_to_interval',
+    'helpers',
 ]
