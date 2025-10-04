@@ -211,6 +211,7 @@ class Bounds[T: (xr.Dataset, xr.DataArray)](Mapping[str, xr.DataArray]):
         return xr.DataArray(
             data=interval.length,
             dims=(dim,),
+            coords={dim: self._obj.cf[dim]},
             name=f'{dim}_length',
         )
 
