@@ -29,7 +29,7 @@ class Bounds[T: (xr.Dataset, xr.DataArray)](Mapping[str, xr.DataArray]):
         obj : Dataset
             The xarray object to add bounds to.
         """
-        self._obj = obj.copy()
+        self._obj: T = obj.copy()
 
     def __getitem__(self, dim: str) -> xr.DataArray:
         """Return the bounds for the specified dimension.
@@ -81,10 +81,10 @@ class Bounds[T: (xr.Dataset, xr.DataArray)](Mapping[str, xr.DataArray]):
         key: str,
         closed: Literal['left', 'right'] | None = None,
         label: Literal['left', 'middle', 'right'] | None = None,
-    ):
-        dataset = self._obj.copy()
-        dim = resolve_dim_name(obj=dataset, key=key)
-        return infer_bounds(obj=dataset[dim], closed=closed, label=label)
+    ) -> xr.DataArray:
+        obj = self._obj.copy()
+        dim = resolve_dim_name(obj=obj, key=key)
+        return infer_bounds(obj=obj[dim], closed=closed, label=label)
 
     def add_bounds(
         self,
@@ -115,25 +115,25 @@ class Bounds[T: (xr.Dataset, xr.DataArray)](Mapping[str, xr.DataArray]):
         Returns
         -------
         Dataset
-            A new dataset with bounds coordinates added.
+            A new object with bounds coordinates added.
 
         Raises
         ------
         KeyError
-            If a key is not found in the dataset.
+            If a key is not found in the object.
         """
-        dataset = self._obj.copy()
+        obj = self._obj.copy()
         keys = set(key_args)
         if not keys:
             # default to all missing axes
             keys = set(self._obj.cf.axes) - set(self.axes)
         coords = {}
         for key in keys:
-            if key in dataset.bounds:
+            if key in obj.bounds:
                 raise KeyError(f'Bounds already exist for dimension: {key!r}')
             _bounds = self.infer_bounds(key=key, closed=closed, label=label)
             coords.update({_bounds.name: _bounds})
-        return dataset.assign_coords(coords)
+        return obj.assign_coords(coords)
 
     def assign_bounds(
         self,
@@ -150,10 +150,7 @@ class Bounds[T: (xr.Dataset, xr.DataArray)](Mapping[str, xr.DataArray]):
         )
         coords = {}
         for dim, data in kwargs.items():
-            if dim not in self._obj.dims:
-                raise ValueError(
-                    f'Dimension {dim!r} does exist in object {self._obj!r}.'
-                )
+            dim = resolve_dim_name(obj=obj, key=str(dim))
             bounds_name = f'{dim}_bounds'
             coords.update({bounds_name: data})
             obj = obj.assign_coords(coords)
@@ -186,13 +183,13 @@ class Bounds[T: (xr.Dataset, xr.DataArray)](Mapping[str, xr.DataArray]):
         )
 
     def to_midpoint(self, key: str) -> xr.DataArray:
-        """Return the specified bounds with the time labels as the midpoints of the bounds.
+        """Return the midpoints of the specified bounds.
 
         The midpoints are calculated by converting the bounds to a pandas
-        `IntervalIndex`, and then taking the `IntervalIndex.mid` attribute. If
+        ``IntervalIndex``, and then taking the `IntervalIndex.mid` attribute. If
         the bounds are datetime-like, the midpoints are normalized to midnight.
         """
-        interval = self.to_index(key)
+        interval = self.to_interval(key)
         midpoint = interval.mid
         if isinstance(midpoint, pd.DatetimeIndex):
             midpoint = midpoint.normalize()  # pyright: ignore[reportAttributeAccessIssue]

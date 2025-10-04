@@ -31,7 +31,7 @@ def resolve_dim_name(obj: xr.Dataset | xr.DataArray, key: str) -> str:
     try:
         # cf-xarray will raise if the key is not found...
         dim = obj.cf[key].name
-        # but it might find a variable that is not a dimension...
+        # but it might find a variable that is not a dimension.
         if dim not in obj.dims:
             raise KeyError
     except KeyError:
