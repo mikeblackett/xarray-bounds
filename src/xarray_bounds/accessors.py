@@ -203,6 +203,20 @@ class Bounds[T: (xr.Dataset, xr.DataArray)](Mapping[str, xr.DataArray]):
             name=dim,
         )
 
+    def to_length(self, key: str) -> xr.DataArray:
+        """Return the lengths of the specified bounds.
+
+        The lengths are calculated by converting the bounds to a pandas
+        ``IntervalIndex``, and then taking the `IntervalIndex.length` attribute.
+        """
+        interval = self.to_interval(key)
+        dim = resolve_dim_name(obj=self._obj, key=key)
+        return xr.DataArray(
+            data=interval.length,
+            dims=(dim,),
+            name=f'{dim}_length',
+        )
+
 
 @xr.register_dataset_accessor('bounds')
 class DatasetBounds(Bounds):
