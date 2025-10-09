@@ -1,5 +1,6 @@
-from typing import cast
+from typing import Literal, cast
 import warnings
+from attr import dataclass
 import pandas as pd
 import numpy as np
 import xarray as xr
@@ -7,10 +8,12 @@ import xarray as xr
 from xarray_bounds.types import (
     IntervalClosed,
     IntervalLabel,
+    is_date_offset,
     is_datetime_index,
     LabelSide,
     ClosedSide,
 )
+from xarray_bounds.options import OPTIONS
 
 __all__ = [
     'datetime_to_interval',
@@ -18,6 +21,187 @@ __all__ = [
     'infer_bounds',
     'infer_interval',
 ]
+
+
+@dataclass(frozen=True)
+class ParsedFreq:
+    """A parsed pandas frequency string.
+
+    Attributes
+    ----------
+    base : str
+        The base frequency alias.
+    n : int, optional
+        The multiplier for the base frequency, default is 1.
+    alignment : Literal['S', 'E'] | None, optional
+        The alignment for the frequency, default is None.
+    anchor : str | None, optional
+        The anchor for the frequency, default is None.
+    """
+
+    n: int
+    base: str
+    alignment: Literal['S', 'E'] | None = None
+    anchor: str | None = None
+
+    @property
+    def freqstr(self) -> str:
+        """Return the frequency string."""
+        freqstr = self.base
+        if self.n > 1:
+            freqstr = f'{self.n}{freqstr}'
+        if self.alignment:
+            freqstr = f'{freqstr}{self.alignment}'
+        if self.anchor:
+            freqstr = f'{freqstr}-{self.anchor}'
+        return freqstr
+
+
+def parse_freq(freq: str, is_period: bool = False) -> ParsedFreq:
+    """Parse a Pandas frequency string into its components.
+
+    Parameters
+    ----------
+    freq : str
+        The frequency string to parse
+    is_period : bool, default False
+        Whether the frequency is for a period.
+
+    Returns
+    -------
+    ParsedFreq
+        A ParsedFreq object
+
+    Raises
+    ------
+    ValueError
+        If the freq is invalid
+
+    See Also
+    --------
+    https://pandas.pydata.org/docs/user_guide/timeseries.html#offset-aliases
+    """
+    offset = pd.tseries.frequencies.to_offset(freq, is_period=is_period)
+    alignment = None
+    base, *rest = offset.name.split(sep='-')
+    if base.endswith(('S', 'E')):
+        alignment = cast(Literal['S', 'E'], base[-1])
+        base = base.removesuffix(alignment)
+    if is_period:
+        alignment = None
+    anchor = rest[0] if rest else None
+    return ParsedFreq(
+        n=offset.n,
+        base=base,
+        alignment=alignment,
+        anchor=anchor,
+    )
+
+
+def infer_midpoint_freq(
+    obj: xr.DataArray | pd.DatetimeIndex,
+    how: Literal['start', 'end'] = 'start',
+) -> str | None:
+    """
+    Infer the frequency of a datetime index by comparing the differences
+    between consecutive elements.
+
+    Parameters
+    ----------
+    obj : xr.DataArray | pd.DatetimeIndex
+        The object to infer the frequency from.
+    how: Literal['start', 'end'], default 'start'
+        Whether to align the inferred frequency to the start or the end of the
+        period.
+
+    Returns
+    -------
+    str | None
+        The inferred frequency string or None if the frequency cannot be inferred.
+
+    Raises
+    ------
+    TypeError
+        If the index is not datetime-like.
+    ValueError
+        If the index contains too few elements to infer a frequency or if the
+        index is not 1D.
+
+    See Also
+    --------
+    infer_freq : Infer the frequency of a time index
+    """
+    if isinstance(obj, xr.DataArray):
+        index = obj.cf['time'].to_index()
+    else:
+        index = obj
+    assert isinstance(index, pd.DatetimeIndex)
+
+    if index.size < 4:
+        # Pandas needs >= 3 elements, but we lose 1 when calculating the diffs
+        raise ValueError(
+            'An index must have at least 4 values to infer frequency '
+            f'using the midpoint method; got {index.size=!r}'
+        )
+
+    if pd.infer_freq(index) == 'D':  # pragma: no cover
+        return 'D'
+
+    delta = index.diff()  # pyright: ignore [reportAttributeAccessIssue]
+    assert isinstance(delta, pd.TimedeltaIndex)
+    left = (index - delta / 2).dropna()
+
+    if freq := pd.infer_freq(left):
+        if parse_freq(freq).base in ['D', 'W', 'M', 'Q', 'Y']:
+            return freq
+    # The remaining possibilities are 'MS', 'ME', 'QS', 'QE', 'YS', 'YE',
+    # which are all 'multiples' of monthly frequencies, so we can snap to the
+    # monthly frequency and infer the frequency from there.
+    snap_freq = 'MS' if how == 'start' else 'ME'
+    snapped = left.snap(snap_freq).normalize()
+    return pd.infer_freq(snapped)
+
+
+def infer_freq(
+    obj: xr.DataArray | pd.DatetimeIndex,
+) -> str | None:
+    """Return the most likely frequency of a pandas or xarray data object.
+
+    This method first tries to infer the frequency using xarray's `infer_freq`
+    method. If that fails, or if the inferred frequency is sub-daily, it falls
+    back to the `infer_midpoint_freq` method.
+
+    Parameters
+    ----------
+    index : pd.DatetimeIndex | xr.DataArray
+        The index to infer the frequency from. If passed a Series or a
+        DataArray, it will use the values of the object NOT the index.
+
+    Returns
+    -------
+    str | None
+        The frequency string or None if the frequency cannot be inferred.
+
+    Raises
+    ------
+    TypeError
+        If the index is not datetime-like.
+    ValueError
+        If the index has too few elements to infer a frequency or the index
+        is not 1D.
+
+    See Also
+    --------
+    infer_midpoint_freq : Infer the frequency of a time index of midpoints.
+    """
+    freq = xr.infer_freq(obj)
+    if freq and freq.endswith('h'):
+        # Some midpoint frequencies are inferred as 'h' (hourly) frequencies,
+        # we consider this a failure.
+        freq = None
+    if freq is None:
+        freq = infer_midpoint_freq(obj)
+    return freq
 
 
 def datetime_to_interval(
@@ -75,7 +259,7 @@ def datetime_to_interval(
     equivalent to passing `label = None`.
     """
     try:
-        freq = pd.infer_freq(index)
+        freq = infer_freq(index)
         assert freq is not None
     except (ValueError, AssertionError) as error:
         raise ValueError(
@@ -88,12 +272,11 @@ def datetime_to_interval(
 
     if resolved_label == LabelSide.MIDDLE:
         # Coerce the midpoints to their inferred frequency
-        index = cast(
-            pd.DatetimeIndex, index.to_series().asfreq(freq).index
+        index = pd.to_datetime(
+            index.to_series().asfreq(freq).index
         ).normalize()
-        _offset = index.freq
-        assert isinstance(_offset, pd.tseries.offsets.BaseOffset)
-        index = pd.to_datetime(index.union([index[-1] + _offset])).shift(-1)
+        assert is_date_offset(index.freq)
+        index = pd.to_datetime(index.union([index[-1] + index.freq])).shift(-1)
 
     if resolved_label == LabelSide.RIGHT:
         left = index.shift(periods=-1, freq=freq)
@@ -101,6 +284,7 @@ def datetime_to_interval(
         left = index
 
     right = left.shift(periods=1, freq=freq)
+
     if normalize:
         left = left.normalize()  # pyright: ignore [reportAttributeAccessIssue]
         right = right.normalize()  # pyright: ignore [reportAttributeAccessIssue]
@@ -149,13 +333,13 @@ def infer_bounds(
     index = obj.to_index()
     interval = infer_interval(index=index, closed=closed, label=label)
     data = np.stack(arrays=(interval.left, interval.right), axis=1)
-    name = f'{dim}_bounds'
+    name = f'{dim}_{OPTIONS["bounds_name"]}'
     coord = obj.assign_attrs(bounds=name)
     return xr.DataArray(
         name=name,
         data=data,
         coords={dim: coord},
-        dims=(dim, 'bounds'),
+        dims=(dim, OPTIONS['bounds_name']),
         attrs={'closed': interval.closed},
     )
 
