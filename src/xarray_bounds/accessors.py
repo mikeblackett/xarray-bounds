@@ -10,10 +10,12 @@ from xarray_bounds.exceptions import NotYetImplementedError
 from xarray_bounds.helpers import infer_bounds
 from xarray_bounds.types import AxisKey, ClosedSide
 from xarray_bounds.utilities import resolve_dim_name, mapping_or_kwargs
+from xarray_bounds.options import OPTIONS
 
 __all__ = ['DataArrayBounds', 'DatasetBounds']
 
 CF_AXES: set[AxisKey] = {'T', 'X', 'Y', 'Z'}
+DATA_ARRAY_BNDS_ACCESSOR_NAME = 'bnds'
 
 
 class Bounds[T: (xr.Dataset, xr.DataArray)](Mapping[str, xr.DataArray]):
@@ -151,7 +153,7 @@ class Bounds[T: (xr.Dataset, xr.DataArray)](Mapping[str, xr.DataArray]):
         coords = {}
         for dim, data in kwargs.items():
             dim = resolve_dim_name(obj=obj, key=str(dim))
-            bounds_name = f'{dim}_bounds'
+            bounds_name = f'{dim}_f{OPTIONS["bounds_name"]}'
             coords.update({bounds_name: data})
             obj = obj.assign_coords(coords)
             obj[dim].attrs['bounds'] = bounds_name
