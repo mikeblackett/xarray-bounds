@@ -39,6 +39,7 @@ class LabelSide(StrEnum):
     LEFT = 'left'
     MIDDLE = 'middle'
     RIGHT = 'right'
+    DEFAULT = 'left'
 
 
 class ClosedSide(StrEnum):
@@ -48,6 +49,7 @@ class ClosedSide(StrEnum):
     RIGHT = 'right'
     BOTH = 'both'
     NEITHER = 'neither'
+    DEFAULT = 'left'
 
 
 def resolve_interval_label(label: IntervalLabel) -> LabelSide:
@@ -59,5 +61,10 @@ def resolve_interval_closed(label: IntervalClosed) -> ClosedSide:
 
 
 def is_datetime_index(index: object) -> TypeIs[pd.DatetimeIndex]:
-    """Check if the index is a datetime index."""
+    """Check if the object is a datetime index."""
     return isinstance(index, pd.DatetimeIndex)
+
+
+def is_date_offset(offset: object) -> TypeIs[pd.DateOffset]:
+    """Check if the object is a DateOffset."""
+    return isinstance(offset, pd.DateOffset)
