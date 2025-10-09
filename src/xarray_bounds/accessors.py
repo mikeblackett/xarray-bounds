@@ -195,3 +195,51 @@ class DataArrayBounds:
             'bounds are not currently supported for DataArrays.'
             'To add bounds, you can convert the DataArray to a Dataset.'
         )
+
+
+@xr.register_dataarray_accessor(DATA_ARRAY_BNDS_ACCESSOR_NAME)
+class DataArrayBnd:
+    def __init__(self, obj: xr.DataArray) -> None:
+        if obj.ndim != 2:
+            raise ValueError(
+                f'.{DATA_ARRAY_BNDS_ACCESSOR_NAME!r} '
+                'accessor only works for 2D DataArrays.'
+            )
+        if obj.dims[1] != OPTIONS['bounds_name']:
+            raise ValueError(
+                f'.{DATA_ARRAY_BNDS_ACCESSOR_NAME!r} '
+                f'accessor only works for 2D DataArrays with a {OPTIONS["bounds_name"]!r} dimension.'
+            )
+        self._obj = obj.copy()
+
+    def to_interval(self) -> pd.IntervalIndex:
+        """Return the bounds as a ``pandas.IntervalIndex``."""
+        attr = self._obj.attrs.get('closed', ClosedSide.DEFAULT)
+        closed = ClosedSide(attr)
+        return pd.IntervalIndex.from_arrays(
+            *self._obj.values.transpose(), closed=closed.value
+        )
+
+    @property
+    def length(self) -> xr.DataArray:
+        """Lengths of the bounds intervals."""
+        dim = self._obj.dims[0]
+        return xr.DataArray(
+            data=self.to_interval().length,
+            dims=(dim,),
+            coords={dim: self._obj.cf[dim]},
+            name=f'{dim}_length',
+        )
+
+    @property
+    def midpoint(self) -> xr.DataArray:
+        """Midpoints of the bounds intervals."""
+        midpoint = self.to_interval().mid
+        if isinstance(midpoint, pd.DatetimeIndex):
+            midpoint = midpoint.normalize()  # pyright: ignore[reportAttributeAccessIssue]
+        dim = self._obj.dims[0]
+        return xr.DataArray(
+            data=midpoint,
+            dims=(dim,),
+            name=dim,
+        )
