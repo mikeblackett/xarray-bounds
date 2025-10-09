@@ -84,6 +84,27 @@ class Bounds[T: (xr.Dataset, xr.DataArray)](Mapping[str, xr.DataArray]):
         closed: Literal['left', 'right'] | None = None,
         label: Literal['left', 'middle', 'right'] | None = None,
     ) -> xr.DataArray:
+        """Infer bounds for the specified dimension.
+
+        Parameters
+        ----------
+        key : str
+            The name or CF axis key of the dimension coordinate to infer bounds for.
+        closed : {'left', 'right'}, optional
+            Which side of the interval bin is closed.
+        label : {'left', 'middle', 'right'}, optional
+            Which bin edge or midpoint the index labels.
+
+        Returns
+        -------
+        xarray.DataArray
+            A DataArray containing the inferred bounds.
+
+        Raises
+        ------
+        KeyError
+            If the key is not found in the object.
+        """
         obj = self._obj.copy()
         dim = resolve_dim_name(obj=obj, key=key)
         return infer_bounds(obj=obj[dim], closed=closed, label=label)
@@ -159,67 +180,11 @@ class Bounds[T: (xr.Dataset, xr.DataArray)](Mapping[str, xr.DataArray]):
             obj[dim].attrs['bounds'] = bounds_name
         return obj
 
-    def to_interval(self, key: str) -> pd.IntervalIndex:
-        """Return the specified bounds as a ``pandas.IntervalIndex``.
-
-        The closed side of the interval is determined by the `closed` attribute
-        of the bounds coordinate. If the closed side is not specified, it defaults
-        to 'left'. If the closed side attribute is not a valid
-        ``IntervalClosed``, a ``ValueError`` is raised.
-
-        Parameters
-        ----------
-        key : str
-            The name or CF axis key of the bounds coordinate to convert to a
-            ``pandas.IntervalIndex``.
-        Returns
-        -------
-        pd.IntervalIndex
-            The bounds as a ``pandas.IntervalIndex``.
-        """
-        bounds = self[key]
-        attr = bounds.attrs.get('closed', 'left')
-        closed = ClosedSide(attr)
-        return pd.IntervalIndex.from_arrays(
-            *bounds.values.transpose(), closed=closed.value
-        )
-
-    def to_midpoint(self, key: str) -> xr.DataArray:
-        """Return the midpoints of the specified bounds.
-
-        The midpoints are calculated by converting the bounds to a pandas
-        ``IntervalIndex``, and then taking the `IntervalIndex.mid` attribute. If
-        the bounds are datetime-like, the midpoints are normalized to midnight.
-        """
-        interval = self.to_interval(key)
-        midpoint = interval.mid
-        if isinstance(midpoint, pd.DatetimeIndex):
-            midpoint = midpoint.normalize()  # pyright: ignore[reportAttributeAccessIssue]
-        dim = resolve_dim_name(obj=self._obj, key=key)
-        return xr.DataArray(
-            data=midpoint,
-            dims=(dim,),
-            name=dim,
-        )
-
-    def to_length(self, key: str) -> xr.DataArray:
-        """Return the lengths of the specified bounds.
-
-        The lengths are calculated by converting the bounds to a pandas
-        ``IntervalIndex``, and then taking the `IntervalIndex.length` attribute.
-        """
-        interval = self.to_interval(key)
-        dim = resolve_dim_name(obj=self._obj, key=key)
-        return xr.DataArray(
-            data=interval.length,
-            dims=(dim,),
-            coords={dim: self._obj.cf[dim]},
-            name=f'{dim}_length',
-        )
-
 
 @xr.register_dataset_accessor('bounds')
 class DatasetBounds(Bounds):
+    """An object for adding bounds coordinates to xarray Dataset objects."""
+
     pass
 
 
