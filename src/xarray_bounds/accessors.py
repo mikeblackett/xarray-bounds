@@ -153,7 +153,9 @@ class Bounds[T: (xr.Dataset, xr.DataArray)](Mapping[str, xr.DataArray]):
         coords = {}
         for key in keys:
             if key in obj.bounds:
-                raise KeyError(f'Bounds already exist for dimension: {key!r}')
+                raise ValueError(
+                    f'Bounds already exist for dimension: {key!r}'
+                )
             _bounds = self.infer_bounds(key=key, closed=closed, label=label)
             coords.update({_bounds.name: _bounds})
         return obj.assign_coords(coords)
@@ -174,7 +176,7 @@ class Bounds[T: (xr.Dataset, xr.DataArray)](Mapping[str, xr.DataArray]):
         coords = {}
         for dim, data in kwargs.items():
             dim = resolve_dim_name(obj=obj, key=str(dim))
-            bounds_name = f'{dim}_f{OPTIONS["bounds_name"]}'
+            bounds_name = f'{dim}_{OPTIONS["bounds_name"]}'
             coords.update({bounds_name: data})
             obj = obj.assign_coords(coords)
             obj[dim].attrs['bounds'] = bounds_name

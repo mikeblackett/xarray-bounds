@@ -6,11 +6,15 @@ import pandas as pd
 import pytest as pt
 import xarray as xr
 
+import xarray_strategies as xrst
+
 from xarray_bounds.helpers import (
+    infer_midpoint_freq,
     midpoint_to_interval,
     index_to_interval,
     infer_interval,
     infer_bounds,
+    infer_freq,
 )
 
 
@@ -41,6 +45,150 @@ def test_midpoint_to_interval(
     actual = midpoint_to_interval(index=index, closed=closed)
     # Assert
     np.testing.assert_array_equal(actual=actual, desired=expected)
+
+
+class TestInferFreq:
+    """
+    Tests for infer_freq function.
+    """
+
+    def test_raises_if_index_not_datetime_like(self):
+        """
+        Should raise a TypeError if the index is not a datetime-like.
+        """
+        index = pd.Index(range(10))
+        with pt.raises(TypeError):
+            infer_freq(index)  # type: ignore
+
+    def test_returns_none_for_sub_daily_frequency(self):
+        """
+        Should return None for sub-daily frequencies.
+        """
+        index = pd.date_range(start='2000', periods=10, freq='h')
+        assert infer_freq(index) is None
+
+    @hp.given(
+        index=xrst.indexes.datetime_indexes(min_size=3),
+    )
+    def test_infers_freq(
+        self,
+        index: pd.DatetimeIndex,
+    ):
+        """
+        Should infer the frequency of a regular datetime index.
+
+        The inferred freq can be equivalent, but not equal, to the original
+        index freq. We can test equivalence by recreating the original index
+        using the inferred freq and comparing the two.
+        """
+        freq = infer_freq(index)
+        assert isinstance(freq, str)
+        actual = pd.DatetimeIndex(data=index.values, freq=freq)
+        np.testing.assert_array_equal(actual=actual, desired=index)
+
+    @hp.given(data=st.data())
+    def test_infers_freq_from_midpoint(
+        self,
+        data: st.DataObject,
+    ):
+        """
+        Should infer the frequency of a regular datetime index of midpoints.
+        """
+        type_ = data.draw(st.sampled_from(['index', 'data_array']))
+        freqs = xrst.frequencies.offset_aliases(
+            min_n=1, max_n=3, exclude_categories=['ME', 'QE', 'YE']
+        )
+        index = data.draw(
+            xrst.indexes.datetime_indexes(
+                freqs=freqs, min_size=5, normalize=True
+            )
+        )
+
+        interval = pd.IntervalIndex.from_breaks(index)
+        mid = pd.to_datetime(interval.mid)
+        # If the index has an inferrable freq, it wouldn't take the
+        # `infer_midpoint_freq` path...
+        hp.assume(pd.infer_freq(mid) is None)
+
+        if type_ == 'index':
+            midpoint = mid
+        else:
+            midpoint = mid.to_series().to_xarray().rename(index='time')
+        freq = infer_freq(midpoint)
+        assert isinstance(freq, str)
+        actual = pd.DatetimeIndex(data=index.values, freq=freq)
+        np.testing.assert_array_equal(actual, index)
+
+
+class TestInferMidpointFreq:
+    """
+    Tests for infer_midpoint_freq function.
+    """
+
+    def test_raises_if_index_is_not_datetime(self):
+        """
+        Should raise a TypeError if the index is not a datetime-like.
+        """
+        index = pd.Index([1, 2, 3])
+        with pt.raises(TypeError):
+            infer_midpoint_freq(index)  # type: ignore
+
+    @hp.given(index=xrst.indexes.datetime_indexes(max_size=3))
+    def test_raises_if_index_is_too_short(self, index: pd.DatetimeIndex):
+        """
+        Should raise a ValueError if the index is too short.
+        """
+        with pt.raises(ValueError):
+            infer_midpoint_freq(index)
+
+    @hp.given(data=st.data())
+    def test_correctly_infers_freq(self, data: st.DataObject):
+        """
+        Should correctly infer the frequency of a datetime index of midpoints
+        """
+        how: Literal['start', 'end'] = data.draw(
+            st.sampled_from(['start', 'end'])
+        )
+        exclude_categories = (
+            ['ME', 'QE', 'YE'] if how == 'start' else ['MS', 'QS', 'YS']
+        )
+        freqs = xrst.frequencies.offset_aliases(
+            min_n=1,
+            max_n=3,
+            exclude_categories=exclude_categories,  # type: ignore
+        )
+        index = data.draw(
+            xrst.indexes.datetime_indexes(
+                freqs=freqs,
+                min_size=5,
+                normalize=True,
+            )
+        )
+        interval = pd.IntervalIndex.from_breaks(index)
+        midpoint = pd.to_datetime(interval.mid)
+
+        if data.draw(st.booleans()):
+            midpoint = midpoint.to_series().to_xarray().rename(index='time')
+
+        inferred_freq = infer_midpoint_freq(obj=midpoint, how=how)
+
+        # It should be able to infer a frequency string
+        assert isinstance(inferred_freq, str)
+        try:
+            # For most frequencies, the inferred frequency should be equal to
+            # the frequency of the original index.
+            assert inferred_freq == index.freqstr
+        except AssertionError:
+            # However, some frequencies are equivalent, but not equal.
+            # For example, 3MS would be inferred as QS.
+            # In this case we can test equivalence by recreating the
+            # original index using the inferred frequency.
+            actual = pd.date_range(
+                start=index[0],
+                periods=index.size,
+                freq=inferred_freq,
+            )
+            np.testing.assert_array_equal(actual, index)
 
 
 class TestIndexToInterval:

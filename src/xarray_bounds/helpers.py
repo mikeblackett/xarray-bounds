@@ -135,7 +135,10 @@ def infer_midpoint_freq(
         index = obj.cf['time'].to_index()
     else:
         index = obj
-    assert isinstance(index, pd.DatetimeIndex)
+    if not isinstance(index, pd.DatetimeIndex):
+        raise TypeError(
+            f'Expected a datetime-like index, got {type(index)=!r}'
+        )
 
     if index.size < 4:
         # Pandas needs >= 3 elements, but we lose 1 when calculating the diffs

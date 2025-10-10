@@ -12,6 +12,7 @@ dependencies = [
     "numpy>=2.3.3",
     "pandas>=2.3.2",
     "xarray>=2025.9.0",
+    "xarray-strategies",
 ]
 
 [dependency-groups]
@@ -36,5 +37,8 @@ line-length = 79
 
 [tool.ruff.format]
 quote-style = "single"
+
+[tool.uv.sources]
+xarray-strategies = { path = "../xarray-strategies", editable = true }
 
 
