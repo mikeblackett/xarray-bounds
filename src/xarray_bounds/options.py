@@ -1,6 +1,6 @@
 """Global options for xarray bounds.
 
-Shamelessly stolen from xarray https://github.com/pydata/xarray/blob/main/xarray/core/options.py
+Shamelessly copied from xarray https://github.com/pydata/xarray/blob/main/xarray/core/options.py
 """
 
 from typing import TypedDict
@@ -9,17 +9,17 @@ from xarray.core.utils import FrozenDict
 
 
 class Options(TypedDict):
-    bounds_name: str
+    bounds_dim: str
 
 
 OPTIONS: Options = {
-    'bounds_name': 'bounds',
+    'bounds_dim': 'bounds',
 }
 
 _BOUNDS_NAME_OPTIONS = ['bounds', 'bnds']
 
 _VALIDATORS = {
-    'bounds_name': lambda v: v in _BOUNDS_NAME_OPTIONS,
+    'bounds_dim': lambda v: v in _BOUNDS_NAME_OPTIONS,
 }
 
 _SETTERS = {}
@@ -37,7 +37,7 @@ class set_options:
                 )
             if k in _VALIDATORS and not _VALIDATORS[k](v):
                 expected = ''
-                if k == 'bounds_name':
+                if k == 'bounds_dim':
                     expected = f'Expected one of {_BOUNDS_NAME_OPTIONS!r}'
                 raise ValueError(
                     f'option {k!r} given an invalid value: {v!r}. ' + expected
@@ -59,8 +59,7 @@ class set_options:
 
 
 def get_options():
-    """
-    Get options for xarray bounds.
+    """Get options for xarray bounds.
 
     See Also
     ----------

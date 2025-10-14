@@ -176,7 +176,7 @@ class Bounds[T: (xr.Dataset, xr.DataArray)](Mapping[str, xr.DataArray]):
         coords = {}
         for dim, data in kwargs.items():
             dim = resolve_dim_name(obj=obj, key=str(dim))
-            bounds_name = f'{dim}_{OPTIONS["bounds_name"]}'
+            bounds_name = f'{dim}_{OPTIONS["bounds_dim"]}'
             coords.update({bounds_name: data})
             obj = obj.assign_coords(coords)
             obj[dim].attrs['bounds'] = bounds_name
