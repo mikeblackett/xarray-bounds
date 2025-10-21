@@ -17,7 +17,7 @@ __all__ = [
 
 type IntervalLabel = Literal['left', 'middle', 'right']
 
-type IntervalClosed = Literal['left', 'right', 'both', 'neither']
+type IntervalClosed = Literal['left', 'right']
 
 type AxisKey = Literal['T', 'Z', 'Y', 'X']
 
@@ -39,7 +39,6 @@ class LabelSide(StrEnum):
     LEFT = 'left'
     MIDDLE = 'middle'
     RIGHT = 'right'
-    DEFAULT = 'left'
 
 
 class ClosedSide(StrEnum):
@@ -47,9 +46,6 @@ class ClosedSide(StrEnum):
 
     LEFT = 'left'
     RIGHT = 'right'
-    BOTH = 'both'
-    NEITHER = 'neither'
-    DEFAULT = 'left'
 
 
 def resolve_interval_label(label: IntervalLabel) -> LabelSide:
