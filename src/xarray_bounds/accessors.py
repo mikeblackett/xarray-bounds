@@ -12,19 +12,22 @@ from xarray_bounds.types import AxisKey, ClosedSide
 from xarray_bounds.utilities import resolve_dim_name, mapping_or_kwargs
 from xarray_bounds.options import OPTIONS
 
-__all__ = ['DataArrayBounds', 'DatasetBounds']
+__all__ = ['DataArrayBoundsAccessor', 'DatasetBoundsAccessor']
 
 CF_AXES: set[AxisKey] = {'T', 'X', 'Y', 'Z'}
-DATA_ARRAY_BNDS_ACCESSOR_NAME = 'bnds'
+
+_BOUNDS_ACCESSOR_NAME = 'bounds'
 
 
-class Bounds[T: (xr.Dataset, xr.DataArray)](Mapping[str, xr.DataArray]):
+class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
+    Mapping[str, xr.DataArray]
+):
     """An object for adding bounds coordinates to xarray objects."""
 
     def __init__(self, obj: T) -> None:
         """Initialize a new ``Bounds`` object.
 
-        A new bounds object is initialized every time a new xrarray object is created.
+        A new bounds object is initialized every time a new xarray object is created.
 
         Parameters
         ----------
@@ -183,65 +186,18 @@ class Bounds[T: (xr.Dataset, xr.DataArray)](Mapping[str, xr.DataArray]):
         return obj
 
 
-@xr.register_dataset_accessor('bounds')
-class DatasetBounds(Bounds):
+@xr.register_dataset_accessor(_BOUNDS_ACCESSOR_NAME)
+class DatasetBoundsAccessor(BoundsAccessor):
     """An object for adding bounds coordinates to xarray Dataset objects."""
 
     pass
 
 
-@xr.register_dataarray_accessor('bounds')
-class DataArrayBounds:
-    def __init__(self, *args, **kwargs) -> None:
-        raise NotYetImplementedError(
-            'bounds are not currently supported for DataArrays.'
-            'To add bounds, you can convert the DataArray to a Dataset.'
-        )
-
-
-@xr.register_dataarray_accessor(DATA_ARRAY_BNDS_ACCESSOR_NAME)
-class DataArrayBnd:
+@xr.register_dataarray_accessor(_BOUNDS_ACCESSOR_NAME)
+class DataArrayBoundsAccessor:
     def __init__(self, obj: xr.DataArray) -> None:
-        if obj.ndim != 2:
-            raise ValueError(
-                f'.{DATA_ARRAY_BNDS_ACCESSOR_NAME!r} '
-                'accessor only works for 2D DataArrays.'
-            )
-        if obj.dims[1] != OPTIONS['bounds_name']:
-            raise ValueError(
-                f'.{DATA_ARRAY_BNDS_ACCESSOR_NAME!r} '
-                f'accessor only works for 2D DataArrays with a {OPTIONS["bounds_name"]!r} dimension.'
-            )
-        self._obj = obj.copy()
-
-    def to_interval(self) -> pd.IntervalIndex:
-        """Return the bounds as a ``pandas.IntervalIndex``."""
-        attr = self._obj.attrs.get('closed', ClosedSide.DEFAULT)
-        closed = ClosedSide(attr)
-        return pd.IntervalIndex.from_arrays(
-            *self._obj.values.transpose(), closed=closed.value
-        )
-
-    @property
-    def length(self) -> xr.DataArray:
-        """Lengths of the bounds intervals."""
-        dim = self._obj.dims[0]
-        return xr.DataArray(
-            data=self.to_interval().length,
-            dims=(dim,),
-            coords={dim: self._obj.cf[dim]},
-            name=f'{dim}_length',
-        )
-
-    @property
-    def midpoint(self) -> xr.DataArray:
-        """Midpoints of the bounds intervals."""
-        midpoint = self.to_interval().mid
-        if isinstance(midpoint, pd.DatetimeIndex):
-            midpoint = midpoint.normalize()  # pyright: ignore[reportAttributeAccessIssue]
-        dim = self._obj.dims[0]
-        return xr.DataArray(
-            data=midpoint,
-            dims=(dim,),
-            name=dim,
+        raise AttributeError(
+            f'{obj.__class__.__name__!r} '
+            f'object has no attribute {_BOUNDS_ACCESSOR_NAME!r}.'
+            'To manage bounds, you can convert the DataArray to a Dataset.'
         )
