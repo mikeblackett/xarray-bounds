@@ -1,156 +1,193 @@
-from typing import Literal
+from collections.abc import Iterable, Mapping
+
 import hypothesis as hp
+import hypothesis.extra.numpy as hnp
+import hypothesis.extra.pandas as hpd
 import hypothesis.strategies as st
 import numpy as np
 import pandas as pd
 import pytest as pt
 import xarray as xr
-
 import xarray_strategies as xrst
 
 from xarray_bounds.helpers import (
-    infer_midpoint_freq,
-    midpoint_to_interval,
+    OffsetAlias,
+    datetime_to_interval,
     index_to_interval,
-    infer_interval,
-    infer_bounds,
-    infer_freq,
+    infer_midpoint_freq,
+    resolve_dim_name,
 )
+from xarray_bounds.types import ClosedSide, LabelSide
+
+NUMPY_DTYPES: Mapping[str, st.SearchStrategy[np.dtype]] = {
+    'boolean': hnp.boolean_dtypes(),
+    'integer': hnp.integer_dtypes(),
+    'floating': hnp.floating_dtypes(sizes=(32, 64)),
+    'complex': hnp.complex_number_dtypes(),
+    'datetime': hnp.datetime64_dtypes(max_period='s'),
+}
 
 
-@hp.given(
-    start=st.integers(min_value=-10, max_value=10),
-    size=st.integers(min_value=3, max_value=10),
-    step=st.integers(min_value=1, max_value=3),
-    closed=st.sampled_from(['left', 'right']),
-)
-def test_midpoint_to_interval(
-    start: int,
-    size: int,
-    step: int,
-    closed: Literal['left', 'right'],
-):
-    """Should be able to roundtrip between interval index and midpoint index.
-
-    The values should be the same, but the types may differ (the
-    inferred interval will have the dtype of the midpoint index).
-    """
-    # Arrange
-    end = start + size * step
-    expected = pd.interval_range(
-        start=start, end=end, freq=step, closed=closed
+def index_dtypes(
+    include: Iterable[str] | None = None,
+    exclude: Iterable[str] | None = None,
+) -> st.SearchStrategy[np.dtype]:
+    """Strategy to generate dtypes for indexes."""
+    if include and exclude:
+        raise ValueError(
+            "cannot specify both 'include' and 'exclude' categories."
+        )
+    if include is not None:
+        return st.one_of(*[NUMPY_DTYPES[cat] for cat in include])
+    return st.one_of(
+        *[
+            strat
+            for key, strat in NUMPY_DTYPES.items()
+            if key not in (exclude or [])
+        ]
     )
-    index = expected.mid
-    # Act
-    actual = midpoint_to_interval(index=index, closed=closed)
-    # Assert
-    np.testing.assert_array_equal(actual=actual, desired=expected)
 
 
-class TestInferFreq:
-    """
-    Tests for infer_freq function.
-    """
-
-    def test_raises_if_index_not_datetime_like(self):
-        """
-        Should raise a TypeError if the index is not a datetime-like.
-        """
-        index = pd.Index(range(10))
+class TestDatetimeToInterval:
+    @hp.given(data=st.data())
+    def test_raises_if_index_is_not_datetime(
+        self, data: st.DataObject
+    ) -> None:
+        """Should raise a TypeError if the index is not a DatetimeIndex."""
+        dtype = data.draw(index_dtypes(exclude=['datetime']))
+        index = data.draw(hpd.indexes(dtype=dtype, max_size=3))
         with pt.raises(TypeError):
-            infer_freq(index)  # type: ignore
-
-    def test_returns_none_for_sub_daily_frequency(self):
-        """
-        Should return None for sub-daily frequencies.
-        """
-        index = pd.date_range(start='2000', periods=10, freq='h')
-        assert infer_freq(index) is None
-
-    @hp.given(
-        index=xrst.indexes.datetime_indexes(min_size=3),
-    )
-    def test_infers_freq(
-        self,
-        index: pd.DatetimeIndex,
-    ):
-        """
-        Should infer the frequency of a regular datetime index.
-
-        The inferred freq can be equivalent, but not equal, to the original
-        index freq. We can test equivalence by recreating the original index
-        using the inferred freq and comparing the two.
-        """
-        freq = infer_freq(index)
-        assert isinstance(freq, str)
-        actual = pd.DatetimeIndex(data=index.values, freq=freq)
-        np.testing.assert_array_equal(actual=actual, desired=index)
+            datetime_to_interval(index)  # type: ignore
 
     @hp.given(data=st.data())
-    def test_infers_freq_from_midpoint(
-        self,
-        data: st.DataObject,
-    ):
+    def test_raises_if_no_inferrable_frequency(self, data: st.DataObject):
+        """Should raise a ValueError if the index has no inferrable frequency.
+
+        Could be:
+          - irregular;
+          - too short;
         """
-        Should infer the frequency of a regular datetime index of midpoints.
-        """
-        type_ = data.draw(st.sampled_from(['index', 'data_array']))
-        freqs = xrst.frequencies.offset_aliases(
-            min_n=1, max_n=3, exclude_categories=['ME', 'QE', 'YE']
+        label = data.draw(st.sampled_from(LabelSide))
+        dtype = data.draw(index_dtypes(include=['datetime']))
+        index = data.draw(hpd.indexes(dtype=dtype, max_size=5))
+        assert isinstance(index, pd.DatetimeIndex)
+        with pt.raises(ValueError):
+            datetime_to_interval(index, label=label)
+
+    def test_raises_with_dst_aware_offsets(self):
+        """Should raise a ValueError if the index has DST-aware offsets."""
+        index = pd.date_range(
+            start='2020-03-08', periods=5, freq='3MS', tz='America/New_York'
         )
-        index = data.draw(
-            xrst.indexes.datetime_indexes(
-                freqs=freqs, min_size=5, normalize=True
+        with pt.raises(ValueError, match='DST-aware'):
+            datetime_to_interval(index)
+
+    @hp.given(data=st.data())
+    def test_converts_regular_indices(self, data: st.DataObject) -> None:
+        """Should convert datetime indices to interval indices."""
+        closed = data.draw(st.sampled_from(ClosedSide))
+        label = data.draw(st.sampled_from(['left', 'right']))
+        if label == LabelSide.LEFT:
+            categories = ['MS', 'QS', 'YS']
+        elif label == LabelSide.RIGHT:
+            categories = ['W', 'ME', 'QE', 'YE']
+        # Limit max_n to 3 to avoid creating out-of-bounds indices
+        freq = data.draw(
+            xrst.frequencies.offset_aliases(categories=categories, max_n=3)  # type: ignore
+        )
+        start = data.draw(
+            xrst.scalars.timestamps(max_value=pd.Timestamp('2020'))
+        )
+        periods = data.draw(st.integers(min_value=5, max_value=10))
+        expected = pd.interval_range(
+            start=start,
+            periods=periods,
+            freq=freq,
+            closed=str(closed),  # type: ignore[arg-type]
+        )
+        index = expected.left if label == LabelSide.LEFT else expected.right
+        assert isinstance(index, pd.DatetimeIndex)
+        actual = datetime_to_interval(
+            index=index, label=LabelSide(label), closed=closed
+        )
+        np.testing.assert_array_equal(actual=actual, desired=expected)
+
+    @hp.given(data=st.data())
+    def test_converts_midpoint_indices(self, data: st.DataObject) -> None:
+        """Should convert midpoint datetime indices to interval indices."""
+        closed = data.draw(st.sampled_from(ClosedSide))
+        if closed == ClosedSide.LEFT:
+            categories = ['MS', 'QS', 'YS']
+        elif closed == ClosedSide.RIGHT:
+            categories = ['W', 'ME', 'QE', 'YE']
+        # Limit max_n to 3 to avoid creating out-of-bounds indices
+        freq = data.draw(
+            xrst.frequencies.offset_aliases(categories=categories, max_n=3)  # type: ignore
+        )
+        start = data.draw(
+            xrst.scalars.timestamps(
+                max_value=pd.Timestamp('2020'), normalize=True
             )
         )
-
-        interval = pd.IntervalIndex.from_breaks(index)
-        mid = pd.to_datetime(interval.mid)
-        # If the index has an inferrable freq, it wouldn't take the
-        # `infer_midpoint_freq` path...
-        hp.assume(pd.infer_freq(mid) is None)
-
-        if type_ == 'index':
-            midpoint = mid
-        else:
-            midpoint = mid.to_series().to_xarray().rename(index='time')
-        freq = infer_freq(midpoint)
-        assert isinstance(freq, str)
-        actual = pd.DatetimeIndex(data=index.values, freq=freq)
-        np.testing.assert_array_equal(actual, index)
+        periods = data.draw(st.integers(min_value=5, max_value=10))
+        expected = pd.interval_range(
+            start=start,
+            periods=periods,
+            freq=freq,
+            closed=str(closed),  # type: ignore[arg-type]
+        )
+        index = expected.mid
+        assert isinstance(index, pd.DatetimeIndex)
+        actual = datetime_to_interval(
+            index=index, label=LabelSide.MIDDLE, closed=closed
+        )
+        np.testing.assert_array_equal(actual=actual, desired=expected)
 
 
 class TestInferMidpointFreq:
-    """
-    Tests for infer_midpoint_freq function.
-    """
-
-    def test_raises_if_index_is_not_datetime(self):
-        """
-        Should raise a TypeError if the index is not a datetime-like.
-        """
-        index = pd.Index([1, 2, 3])
+    @hp.given(data=st.data())
+    def test_raises_if_index_is_not_datetime(
+        self, data: st.DataObject
+    ) -> None:
+        """Should raise a TypeError if the index is not a DatetimeIndex."""
+        dtype = data.draw(index_dtypes(exclude=['datetime']))
+        index = data.draw(hpd.indexes(dtype=dtype))
         with pt.raises(TypeError):
             infer_midpoint_freq(index)  # type: ignore
 
-    @hp.given(index=xrst.indexes.datetime_indexes(max_size=3))
-    def test_raises_if_index_is_too_short(self, index: pd.DatetimeIndex):
-        """
-        Should raise a ValueError if the index is too short.
-        """
-        with pt.raises(ValueError):
-            infer_midpoint_freq(index)
+    @hp.given(data=st.data())
+    def test_raises_if_index_is_too_short(self, data: st.DataObject):
+        """Should raise a ValueError if the index is too short."""
+        dtype = data.draw(index_dtypes(include=['datetime']))
+        index = data.draw(hpd.indexes(dtype=dtype, max_size=3))
+        with pt.raises(ValueError, match='size'):
+            infer_midpoint_freq(index)  # type: ignore
 
     @hp.given(data=st.data())
-    def test_correctly_infers_freq(self, data: st.DataObject):
-        """
-        Should correctly infer the frequency of a datetime index of midpoints
-        """
-        how: Literal['start', 'end'] = data.draw(
-            st.sampled_from(['start', 'end'])
+    def test_raises_if_index_is_not_monotonic(self, data: st.DataObject):
+        """Should raise a ValueError if the index is not monotonic."""
+        dtype = data.draw(index_dtypes(include=['datetime']))
+        index = data.draw(hpd.indexes(dtype=dtype, min_size=4))
+        with pt.raises(ValueError, match='monotonic'):
+            infer_midpoint_freq(index)  # type: ignore
+
+    @hp.given(data=st.data())
+    def test_shortcuts_for_daily_frequency(self, data: st.DataObject):
+        """Should shortcut for daily frequency."""
+        interval = pd.interval_range(
+            start=pd.Timestamp('2000-01-01'), periods=5, freq='D'
         )
+        index = pd.to_datetime(interval.mid)
+        closed = data.draw(st.sampled_from(ClosedSide))
+        inferred_freq = infer_midpoint_freq(index=index, closed=closed)
+        assert inferred_freq == 'D'
+
+    @hp.given(data=st.data())
+    def test_infers_correct_freq(self, data: st.DataObject):
+        """Should infer the frequency of a datetime index of regular midpoints"""
+        closed = data.draw(st.sampled_from(['left', 'right']))
         exclude_categories = (
-            ['ME', 'QE', 'YE'] if how == 'start' else ['MS', 'QS', 'YS']
+            ['W', 'ME', 'QE', 'YE'] if closed == 'left' else ['MS', 'QS', 'YS']
         )
         freqs = xrst.frequencies.offset_aliases(
             min_n=1,
@@ -161,16 +198,13 @@ class TestInferMidpointFreq:
             xrst.indexes.datetime_indexes(
                 freqs=freqs,
                 min_size=5,
-                normalize=True,
+                normalize=False,
             )
         )
         interval = pd.IntervalIndex.from_breaks(index)
         midpoint = pd.to_datetime(interval.mid)
 
-        if data.draw(st.booleans()):
-            midpoint = midpoint.to_series().to_xarray().rename(index='time')
-
-        inferred_freq = infer_midpoint_freq(obj=midpoint, how=how)
+        inferred_freq = infer_midpoint_freq(index=midpoint, closed=closed)  # type: ignore
 
         # It should be able to infer a frequency string
         assert isinstance(inferred_freq, str)
@@ -180,7 +214,7 @@ class TestInferMidpointFreq:
             assert inferred_freq == index.freqstr
         except AssertionError:
             # However, some frequencies are equivalent, but not equal.
-            # For example, 3MS would be inferred as QS.
+            # For example, `3MS` would be inferred as `QS`.
             # In this case we can test equivalence by recreating the
             # original index using the inferred frequency.
             actual = pd.date_range(
@@ -193,129 +227,200 @@ class TestInferMidpointFreq:
 
 class TestIndexToInterval:
     @hp.given(
-        start=st.integers(min_value=-10, max_value=10),
-        size=st.integers(min_value=3, max_value=10),
-        step=st.integers(min_value=1, max_value=3),
-        closed=st.sampled_from(['left', 'right']),
-        label=st.sampled_from(['left', 'right']),
+        closed=st.sampled_from(ClosedSide),
+        label=st.sampled_from(LabelSide),
+        name=st.text(),
     )
-    def test_roundtrip(
+    def test_raises_if_index_too_short(
+        self, closed: ClosedSide, label: LabelSide, name: str
+    ):
+        """Should raise a ValueError if the index is too short."""
+        index = pd.Index([1])
+        with pt.raises(ValueError):
+            index_to_interval(
+                index=index, closed=closed, label=label, name=name
+            )
+
+    @hp.given(
+        closed=st.sampled_from(ClosedSide),
+        label=st.sampled_from(LabelSide),
+        name=st.text(),
+    )
+    def test_raises_if_index_not_monotonic(
+        self, closed: ClosedSide, label: LabelSide, name: str
+    ):
+        """Should raise a ValueError if the index is not monotonic increasing."""
+        index = pd.Index([3, 1, 2])
+        with pt.raises(ValueError):
+            index_to_interval(
+                index=index, closed=closed, label=label, name=name
+            )
+
+    @hp.given(
+        closed=st.sampled_from(ClosedSide),
+        label=st.sampled_from(LabelSide),
+        name=st.text(),
+    )
+    def test_raises_if_index_not_uniformly_spaced(
+        self, closed: ClosedSide, label: LabelSide, name: str
+    ):
+        """Should raise a ValueError if the index is not uniformly spaced."""
+        index = pd.Index([1, 2, 4, 9])
+        with pt.raises(ValueError):
+            index_to_interval(
+                index=index, closed=closed, label=label, name=name
+            )
+
+    @hp.given(
+        start=st.integers(min_value=-10, max_value=10),
+        periods=st.integers(min_value=3, max_value=10),
+        step=st.integers(min_value=1, max_value=3),
+        closed=st.sampled_from(ClosedSide),
+        label=st.sampled_from(LabelSide),
+        name=st.text(),
+    )
+    def test_roundtrips_increasing_index(
         self,
         start: int,
-        size: int,
+        periods: int,
         step: int,
-        closed: Literal['left', 'right'],
-        label: Literal['left', 'right'],
+        closed: ClosedSide,
+        label: LabelSide,
+        name: str,
     ):
         """Should be able to roundtrip between interval index and index."""
-        # Arrange
-        end = start + size * step
         expected = pd.interval_range(
-            start=start, end=end, freq=step, closed=closed
+            start=start, periods=periods, freq=step, closed=closed.value
         )
-        index = getattr(expected, label)
-        # Act
-        actual = index_to_interval(index=index, closed=closed, label=label)
-        # Assert
+
+        index = getattr(
+            expected, 'mid' if label == LabelSide.MIDDLE else label
+        )
+
+        actual = index_to_interval(
+            index=index, closed=closed, label=label, name=name
+        )
         np.testing.assert_array_equal(actual=actual, desired=expected)
 
     @hp.given(
         start=st.integers(min_value=-10, max_value=10),
-        size=st.integers(min_value=3, max_value=10),
+        periods=st.integers(min_value=3, max_value=10),
         step=st.integers(min_value=1, max_value=3),
+        closed=st.sampled_from(ClosedSide),
+        label=st.sampled_from(LabelSide),
+        name=st.text(),
     )
-    def test_delegates_to_midpoint(
+    def test_roundtrips_decreasing_index(
         self,
         start: int,
-        size: int,
+        periods: int,
         step: int,
+        closed: ClosedSide,
+        label: LabelSide,
+        name: str,
     ):
-        """Should delegate to midpoint_to_interval if the label is `middle`."""
-        # Arrange
-        index = pd.Index(range(start, start + size * step, step))
-        expected = midpoint_to_interval(index=index)
-        # Act
-        actual = index_to_interval(index=index, label='middle')
-        # Assert
-        np.testing.assert_array_equal(actual=actual, desired=expected)
-
-
-class TestInferInterval:
-    def test_infers_from_datetime_index(self):
-        """Should infer the interval from a DatetimeIndex."""
-        # Arrange
-        index = pd.date_range(start='2000-01-01', periods=10, freq='MS')
-        start = index[0]
-        assert index.freq is not None
-        end = index[-1] + index.freq
-        expected = pd.interval_range(
-            start=start, end=end, freq=index.freqstr, closed='left'
+        """Should be able to roundtrip between interval index and index."""
+        closed_flipped = (
+            ClosedSide.LEFT if closed == ClosedSide.RIGHT else ClosedSide.RIGHT
         )
-        # Act
-        actual = infer_interval(index=index)
-        # Assert
-        np.testing.assert_array_equal(actual=actual, desired=expected)
-
-    def test_falls_back_to_midpoint(self):
-        """Should fall back to midpoint_to_interval if the datetime index has no frequency."""
-        # Arrange
-        index = pd.DatetimeIndex(['2000-01-01', '2000-02-01', '2000-04-01'])
-        expected = midpoint_to_interval(index=index)
-        # Act
-        actual = infer_interval(index=index)
-        # Assert
-        np.testing.assert_array_equal(actual=actual, desired=expected)
-
-    def test_infers_from_regular_index(self):
-        """infer the interval from a regular index."""
-        # Arrange
-        start = 1
-        end = 10
-        closed = 'left'
-        index = pd.Index(range(start, end))
-        expected = pd.interval_range(
-            start=start, end=end, freq=1, closed=closed
+        label_flipped = (
+            LabelSide.LEFT
+            if label == LabelSide.RIGHT
+            else LabelSide.RIGHT
+            if label == LabelSide.LEFT
+            else LabelSide.MIDDLE
         )
-        # Act
-        actual = infer_interval(index=index, closed=closed)
-        # Assert
+        expected = pd.interval_range(
+            start=start,
+            periods=periods,
+            freq=step,
+            closed=closed_flipped.value,
+        )
+        expected = pd.IntervalIndex(expected[::-1])
+
+        index = getattr(
+            expected,
+            'mid' if label_flipped == LabelSide.MIDDLE else label_flipped,
+        )
+
+        actual = index_to_interval(
+            index=index, closed=closed, label=label, name=name
+        )
         np.testing.assert_array_equal(actual=actual, desired=expected)
 
 
-class TestInferBounds:
-    def test_raises_if_not_1d(self):
-        """Should raise an error if the dimension is not 1D."""
+class TestResolveDimName:
+    @hp.given(
+        key=st.sampled_from(
+            [
+                # cf axis
+                'Y',
+                # name
+                'lat',
+                # standard_name
+                'latitude',
+            ]
+        )
+    )
+    def test_resolve_dim(self, key: str):
+        """Should return the dimension name if it exists."""
+        ds = xr.tutorial.load_dataset('air_temperature')
+        assert resolve_dim_name(ds, key) == 'lat'
 
-        da = xr.tutorial.open_dataset('air_temperature').air
-        with pt.raises(
-            ValueError,
-            match='Bounds are currently only supported for 1D coordinates.',
-        ):
-            infer_bounds(da)
+    @hp.given(key=st.text())
+    def test_resolve_dim_raises_key_error(self, key: str):
+        """Should raise a KeyError if the dimension cannot be resolved."""
+        with pt.raises(KeyError):
+            resolve_dim_name(xr.DataArray(), key)
+
+
+class TestOffsetAlias:
+    @hp.given(freq=xrst.frequencies.offset_aliases())
+    def test_from_freq_with_freq_string(self, freq: str):
+        """Should return an OffsetAlias object from a frequency string."""
+        # Normalize `freq` using pandas to_offset to handle equivalent frequency strings
+        # i.e. 1MS == MS, YS-JAN == YS, etc.
+        date_offset = pd.tseries.frequencies.to_offset(freq)
+        offset_alias = OffsetAlias.from_freq(freq)
+        assert isinstance(offset_alias, OffsetAlias)
+        assert offset_alias.freqstr == date_offset.freqstr
+
+    @hp.given(freq=xrst.frequencies.offset_aliases())
+    def test_from_freq_with_date_offset(self, freq: str):
+        """Should return an OffsetAlias object from a pd.DateOffset object."""
+        date_offset = pd.tseries.frequencies.to_offset(freq)
+        offset_alias = OffsetAlias.from_freq(date_offset)
+        assert isinstance(offset_alias, OffsetAlias)
+        assert offset_alias.freqstr == date_offset.freqstr
+
+    @hp.given(freq=xrst.frequencies.offset_aliases())
+    def test_to_offset_with_freq_string(self, freq: str):
+        offset_alias = OffsetAlias.from_freq(freq)
+        expected = pd.tseries.frequencies.to_offset(freq)
+        actual = offset_alias.to_offset()
+
+        assert expected == actual
+
+    @hp.given(freq=xrst.frequencies.offset_aliases())
+    def test_to_offset_with_date_offset(self, freq: str):
+        expected = pd.tseries.frequencies.to_offset(freq)
+        offset_alias = OffsetAlias.from_freq(expected)
+        actual = offset_alias.to_offset()
+
+        assert expected == actual
 
     @hp.given(
-        closed=st.sampled_from(['left', 'right']),
+        freq_start=xrst.frequencies.offset_aliases(
+            categories=['D', 'MS', 'QS', 'YS']
+        ),
+        freq_end=xrst.frequencies.offset_aliases(
+            categories=['W', 'ME', 'QE', 'YE']
+        ),
     )
-    def test_infers_bounds(self, closed: Literal['left', 'right']):
-        """Should infer the bounds for a 1D coordinate.
+    def test_is_end_aligned(self, freq_start: str, freq_end: str):
+        """Should correctly identify end-aligned frequencies."""
+        offset_start = OffsetAlias.from_freq(freq_start)
+        offset_end = OffsetAlias.from_freq(freq_end)
 
-        This is not heavily parameterized, as the bounds inference is
-        tested in the other tests.
-        """
-        # Arrange
-        da = xr.DataArray(
-            data=[1, 2, 3], dims=['time'], coords={'time': [1, 2, 3]}
-        )
-        expected = xr.DataArray(
-            name='time_bounds',
-            data=[[1, 2], [2, 3], [3, 4]],
-            dims=['time', 'bounds'],
-            coords={'time': da.time.assign_attrs(bounds='time_bounds')},
-            attrs={
-                'closed': closed,
-            },
-        )
-        # Act
-        actual = infer_bounds(da, closed=closed)
-        # Assert
-        xr.testing.assert_identical(actual, expected)
+        assert offset_start.is_end_aligned is False
+        assert offset_end.is_end_aligned is True

@@ -1,11 +1,9 @@
-from typing import Literal
+import cf_xarray  # noqa: F401
 import hypothesis as hp
 import hypothesis.strategies as st
-import numpy as np
-import pandas as pd
-import xarray as xr
 import pytest as pt
-import cf_xarray  # noqa: F401
+import xarray as xr
+
 import xarray_bounds  # noqa: F401
 
 
@@ -28,7 +26,7 @@ class TestDatasetBoundsAccessor:
     def test_getitem_raises_for_missing_bounds(self):
         """Should raise an error if the bounds are not present for the dimension/axis."""
         ds = xr.tutorial.open_dataset('air_temperature')
-        with pt.raises(KeyError):
+        with pt.raises(KeyError, match='No bounds found for axis'):
             ds.bounds['time']
 
     def test_axes_getter(self):
@@ -69,7 +67,7 @@ class TestDatasetBoundsAccessor:
         assert actual == expected
 
     def test_raises_if_add_invalid_key(self):
-        """Should raise an error if the key is not a known dimension or axis."""
+        """Should raise an error if the key is not resolvable to a known dimension."""
         ds = xr.tutorial.open_dataset('air_temperature')
         with pt.raises(KeyError):
             ds.bounds.add_bounds('foo')
@@ -93,14 +91,20 @@ class TestDatasetBoundsAccessor:
         )
     )
     def test_add_bounds_for_key(self, key: str):
-        """Should add bounds to a DataSet."""
+        """Should add bounds for the specified dimension.
+
+        The dimension can be specified by any key resolvable by cf-xarray.
+        """
         ds = xr.tutorial.open_dataset('air_temperature')
         assert key not in ds.bounds
         actual = ds.bounds.add_bounds(key)
         assert key in actual.bounds
 
     def test_add_missing_bounds(self):
-        """Should add all missing bounds to a DataSet."""
+        """Should add all missing bounds to a DataSet.
+
+        Missing bounds should be added for all dimensions that represent a CF axis.
+        """
         ds = xr.tutorial.open_dataset('air_temperature')
         missing = list(ds.dims)
         assert all(d not in ds.bounds for d in missing)
@@ -119,104 +123,7 @@ class TestDataArrayBoundsAccessor:
     """Tests for the DataArrayBoundsAccessor class."""
 
     def test_init(self):
-        """Should raise a NotYetImplementedError."""
-        from xarray_bounds.exceptions import NotYetImplementedError
+        """Should raise a AttributeError."""
 
-        with pt.raises(NotYetImplementedError):
+        with pt.raises((AttributeError, RuntimeError)):
             xr.DataArray().bounds
-
-
-class TestDataArrayBndsAccessor:
-    """Tests for the DataArrayBndsAccessor class."""
-
-    def test_raises_if_not_2d(self):
-        """Should raise an error if the DataArray is not 2D."""
-        da = xr.DataArray(range(10))
-        with pt.raises(ValueError):
-            da.bnds
-
-    def test_raises_if_not_bounds_dim(self):
-        """Should raise an error if the DataArray is not 2D."""
-        da = xr.DataArray(np.random.rand(10, 10))
-        with pt.raises(ValueError):
-            da.bnds
-
-    @hp.given(
-        start=st.integers(min_value=-10, max_value=10),
-        size=st.integers(min_value=3, max_value=10),
-        step=st.integers(min_value=1, max_value=3),
-        closed=st.sampled_from(['left', 'right']),
-    )
-    def test_to_interval(
-        self,
-        start: int,
-        size: int,
-        step: int,
-        closed: Literal['left', 'right'],
-    ):
-        """Should convert the bounds to a pandas interval index."""
-        expected = pd.interval_range(
-            start=start,
-            end=start + size * step,
-            freq=step,
-            closed=closed,
-        )
-        index = expected.left
-        ds = xr.Dataset(
-            data_vars={'foo': ('lat', range(len(index)))},
-            coords={'lat': index},
-        ).bounds.add_bounds('lat', closed=closed)
-        actual = ds.bounds['lat'].bnds.to_interval()
-        np.testing.assert_array_equal(actual=actual, desired=expected)
-
-    @hp.given(
-        start=st.integers(min_value=-10, max_value=10),
-        size=st.integers(min_value=3, max_value=10),
-        step=st.integers(min_value=1, max_value=3),
-        closed=st.sampled_from(['left', 'right']),
-    )
-    def test_midpoint(
-        self,
-        start: int,
-        size: int,
-        step: int,
-        closed: Literal['left', 'right'],
-    ):
-        """Should return the midpoint of the bounds."""
-        end = start + size * step
-        interval = pd.interval_range(
-            start=start, end=end, freq=step, closed=closed
-        )
-        expected = interval.mid
-        ds = xr.Dataset(
-            data_vars={'foo': ('lat', range(len(interval)))},
-            coords={'lat': interval.left},
-        ).bounds.add_bounds('lat', closed=closed)
-        actual = ds.bounds['lat'].bnds.midpoint
-        np.testing.assert_array_equal(actual=actual, desired=expected)
-
-    @hp.given(
-        start=st.integers(min_value=-10, max_value=10),
-        size=st.integers(min_value=3, max_value=10),
-        step=st.integers(min_value=1, max_value=3),
-        closed=st.sampled_from(['left', 'right']),
-    )
-    def test_length(
-        self,
-        start: int,
-        size: int,
-        step: int,
-        closed: Literal['left', 'right'],
-    ):
-        """Should return the midpoint of the bounds."""
-        end = start + size * step
-        interval = pd.interval_range(
-            start=start, end=end, freq=step, closed=closed
-        )
-        expected = interval.length
-        ds = xr.Dataset(
-            data_vars={'foo': ('lat', range(len(interval)))},
-            coords={'lat': interval.left},
-        ).bounds.add_bounds('lat', closed=closed)
-        actual = ds.bounds['lat'].bnds.length
-        np.testing.assert_array_equal(actual=actual, desired=expected)

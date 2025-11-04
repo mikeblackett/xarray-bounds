@@ -17,10 +17,10 @@ def test_set_bounds_dim_retention(value: str):
     """Test the set_options function."""
     with xarray_bounds.set_options(bounds_dim=value):
         ds = xr.tutorial.open_dataset('air_temperature').bounds.add_bounds(
-            'lat'
+            'time'
         )
-        assert value in ds.bounds['lat'].dims
-        assert ds.lat.attrs['bounds'] == f'lat_{value}'
+        assert value in ds.bounds['time'].dims
+        assert ds.time.attrs['bounds'] == f'time_{value}'
 
 
 def test_invalid_bounds_dim_raises():

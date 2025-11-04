@@ -1,0 +1,10 @@
+{
+    "python.testing.pytestArgs": [
+        "tests"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "coverage-gutters.coverageFileNames": [".coverage", "coverage.xml"],
+    "coverage-gutters.showLineCoverage": true,
+    "python.analysis.typeCheckingMode": "standard",
+}
