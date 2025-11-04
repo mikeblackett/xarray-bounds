@@ -1,6 +1,6 @@
 from collections.abc import Mapping, Sequence
-from typing import Literal, TypeIs
 from enum import StrEnum
+from typing import Literal, TypeIs
 
 import pandas as pd
 
@@ -11,6 +11,9 @@ __all__ = [
     'IntervalLabel',
     'LabelSide',
     'is_datetime_index',
+    'is_date_offset',
+    'is_interval_index',
+    'is_multi_index',
     'resolve_interval_closed',
     'resolve_interval_label',
 ]
@@ -59,6 +62,16 @@ def resolve_interval_closed(label: IntervalClosed) -> ClosedSide:
 def is_datetime_index(index: object) -> TypeIs[pd.DatetimeIndex]:
     """Check if the object is a datetime index."""
     return isinstance(index, pd.DatetimeIndex)
+
+
+def is_interval_index(index: object) -> TypeIs[pd.IntervalIndex]:
+    """Check if the object is an interval index."""
+    return isinstance(index, pd.IntervalIndex)
+
+
+def is_multi_index(index: object) -> TypeIs[pd.MultiIndex]:
+    """Check if the object is a MultiIndex."""
+    return isinstance(index, pd.MultiIndex)
 
 
 def is_date_offset(offset: object) -> TypeIs[pd.DateOffset]:
