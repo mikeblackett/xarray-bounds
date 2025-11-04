@@ -340,31 +340,6 @@ class OffsetAlias:
         return pd.tseries.frequencies.to_offset(str(self))
 
 
-def _left_from_midpoint(
-    index: pd.DatetimeIndex, offset: pd.DateOffset
-) -> pd.DatetimeIndex:
-    """Compute the left edges of intervals for a midpoint-labeled datetime index.
-
-    Parameters
-    ----------
-    index : pd.DatetimeIndex
-        The midpoint index.
-    offset : pd.DateOffset
-        The frequency of the intervals.
-
-    Returns
-    -------
-    pd.DatetimeIndex
-        The left edges of each interval.
-    """
-    # Use pandas ``asfreq`` to reconstruct a start-aligned index
-    series = index.to_series()
-    aligned = pd.to_datetime(series.asfreq(offset, normalize=True).index)
-    assert aligned.freq is not None
-    left = pd.to_datetime(aligned.union([aligned[-1] + aligned.freq]))
-    return left - offset
-
-
 def _parse_freq(
     freq: str | pd.DateOffset, is_period: bool = False
 ) -> OffsetAlias:
@@ -406,6 +381,31 @@ def _parse_freq(
         alignment=alignment,
         anchor=anchor,
     )
+
+
+def _left_from_midpoint(
+    index: pd.DatetimeIndex, offset: pd.DateOffset
+) -> pd.DatetimeIndex:
+    """Compute the left edges of intervals for a midpoint-labeled datetime index.
+
+    Parameters
+    ----------
+    index : pd.DatetimeIndex
+        The midpoint index.
+    offset : pd.DateOffset
+        The frequency of the intervals.
+
+    Returns
+    -------
+    pd.DatetimeIndex
+        The left edges of each interval.
+    """
+    delta = pd.to_timedelta(index.diff())  # type: ignore[attr-defined]
+    left = (index - delta / 2).dropna()
+    aligned = left.shift(-1, freq=offset).normalize()
+    if not aligned.freq == offset:
+        print(Warning('could not align midpoints to the specified frequency.'))
+    return pd.to_datetime(aligned.union([aligned[-1] + offset]))
 
 
 # def interval_to_bounds(
