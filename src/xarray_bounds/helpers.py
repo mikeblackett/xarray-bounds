@@ -91,7 +91,7 @@ def datetime_to_interval(
     offset = pd.tseries.frequencies.to_offset(freq)
     assert is_date_offset(offset)
 
-    alias = OffsetAlias.from_pandas(freq)
+    descending = index.is_monotonic_decreasing
     if label is None:
         label = LabelSide.RIGHT if alias.is_end_aligned else LabelSide.LEFT
 
@@ -113,6 +113,12 @@ def datetime_to_interval(
     if normalize:
         left = left.normalize()
         right = right.normalize()
+
+    if descending:
+        left, right = right, left
+        closed = (
+            ClosedSide.RIGHT if closed == ClosedSide.LEFT else ClosedSide.LEFT
+        )
 
     return pd.IntervalIndex.from_arrays(
         left=left,
@@ -160,8 +166,9 @@ def index_to_interval(
             f'Index must have at least two elements, got {len(index)}'
         )
 
-    if not index.is_monotonic_increasing:
-        raise ValueError('Index must be monotonic increasing.')
+    descending = index.is_monotonic_decreasing
+    if not index.is_monotonic_increasing and not descending:
+        raise ValueError('Index must be monotonic.')
 
     diffs = np.diff(index)
     if not np.allclose(diffs, diffs[0]):
@@ -182,12 +189,21 @@ def index_to_interval(
         case _:
             assert_never(label)
 
-    return pd.IntervalIndex.from_breaks(
+    if descending:
+        breaks = breaks[::-1]
+        closed = (
+            ClosedSide.RIGHT if closed == ClosedSide.LEFT else ClosedSide.LEFT
+        )
+
+    interval = pd.IntervalIndex.from_breaks(
         breaks=breaks,
         closed=closed.value,
         name=name or index.name,
     )
 
+    if descending:
+        return interval[::-1]
+    return interval
 
 def infer_midpoint_freq(
     index: pd.DatetimeIndex,
