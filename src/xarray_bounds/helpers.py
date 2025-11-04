@@ -47,15 +47,15 @@ def datetime_to_interval(
         The datetime index to infer bounds for.
     label : Literal['left', 'middle', 'right'], optional
         Which bin edge or midpoint the index labels.
-        The default is ‘left’ for all frequencies except for ‘ME’, ‘YE’,
-        ‘QE’, and ‘W’ which have a default of ‘right’.
+        The default is `left` for all frequencies except for `ME`, `YE`,
+        `QE`, and `W` which have a default of `right`.
     closed : Literal['left', 'right'], optional
         Which side of bin interval is closed.
-        The default is ‘left’ for all frequencies except for ‘ME’, ‘YE’,
-        ‘QE’, and ‘W’ which have a default of ‘right’.
+        The default is `left` for all frequencies except for `ME`, `YE`,
+        `QE`, and `W` which have a default of `right`.
     name : Hashable, optional
         The name of the interval index. If None, the name of the index is used.
-    normalize : bool, default True
+    normalize : bool, default False
         If True, the bounds will be normalized to midnight.
 
     Returns
@@ -76,7 +76,7 @@ def datetime_to_interval(
     """
     if not is_datetime_index(index):
         raise TypeError(
-            f'Expected a datetime-like index, got {type(index)=!r}'
+            f'expected a {pd.DatetimeIndex!r}, got {type(index)!r}'
         )
     try:
         if label == LabelSide.MIDDLE:
@@ -98,6 +98,7 @@ def datetime_to_interval(
         )
 
     descending = index.is_monotonic_decreasing
+
     alias = OffsetAlias.from_freq(freq)
     if label is None:
         label = LabelSide.RIGHT if alias.is_end_aligned else LabelSide.LEFT
@@ -130,7 +131,7 @@ def datetime_to_interval(
     return pd.IntervalIndex.from_arrays(
         left=left,
         right=right,
-        closed=closed,  # type: ignore[arg-type]
+        closed=str(closed),  # type: ignore[arg-type]
         name=name or index.name,
     )
 
@@ -164,7 +165,7 @@ def index_to_interval(
     ValueError
         If the index is too short
     ValueError
-        If the index is not monotonic increasing
+        If the index is not monotonic
     ValueError
         If the index is not uniformly spaced
     """
@@ -193,7 +194,7 @@ def index_to_interval(
             breaks = np.concatenate(
                 [[index[0] - step / 2], index.to_numpy() + step / 2]
             )
-        case _:
+        case _:  # pragma: no cover
             assert_never(label)
 
     if descending:
@@ -375,15 +376,15 @@ def _parse_freq(
 
     Parameters
     ----------
-    freq : str
-        The frequency string to parse
+    freq : str | pd.DateOffset
+        The frequency to parse
     is_period : bool, default False
         Whether the frequency is for a period.
 
     Returns
     -------
     OffsetAlias
-        A ParsedFreq object
+        A object representing the parsed frequency.
 
     Raises
     ------
@@ -434,41 +435,3 @@ def _left_from_midpoint(
     if not aligned.freq == offset:
         print(Warning('could not align midpoints to the specified frequency.'))
     return pd.to_datetime(aligned.union([aligned[-1] + offset]))
-
-
-# def interval_to_bounds(
-#     index: pd.IntervalIndex,
-#     *,
-#     label: LabelSide = LabelSide.LEFT,
-# ) -> xr.DataArray:
-#     """Convert an interval index to a bounds DataArray.
-#
-#     The name of the index is used as the dimension name.
-#
-#     Parameters
-#     ----------
-#     index : pd.IntervalIndex
-#         The interval index to convert.
-#     label : Literal['left', 'middle', 'right'], default 'left'
-#         How to label the bounds.
-#
-#     Returns
-#     -------
-#     xr.DataArray
-#         The bounds DataArray.
-#     """
-#     if not is_interval_index(index):
-#         raise TypeError('"index" must be an IntervalIndex.')
-#
-#     dim = index.name
-#     name = f'{dim}_{OPTIONS["bounds_dim"]}'
-#     data = np.stack(arrays=(index.left, index.right), axis=1)
-#     labels = getattr(index, 'mid' if label == LabelSide.MIDDLE else label)
-#
-#     return xr.DataArray(
-#         name=name,
-#         data=data,
-#         coords={dim: (dim, labels)},
-#         dims=(dim, OPTIONS['bounds_dim']),
-#         attrs={'closed': index.closed},
-#     )
