@@ -84,8 +84,8 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
     def infer_bounds(
         self,
         key: str,
-        closed: Literal['left', 'right'] | None = None,
-        label: Literal['left', 'middle', 'right'] | None = None,
+        closed: IntervalClosed | None = None,
+        label: IntervalLabel | None = None,
     ) -> xr.DataArray:
         """Infer bounds for the specified dimension.
 
@@ -115,10 +115,10 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
     def add_bounds(
         self,
         *key_args: str,
-        closed: Literal['left', 'right'] | None = None,
-        label: Literal['left', 'middle', 'right'] | None = None,
+        closed: IntervalClosed | None = None,
+        label: IntervalLabel | None = None,
     ) -> T:
-        """Add bounds coordinates for the specified dimensions.
+        """Infer and add bounds coordinates for the specified dimensions.
 
         Returns a new object with all the original data in addition to the new
         coordinates.
