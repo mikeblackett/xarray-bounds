@@ -206,6 +206,7 @@ def index_to_interval(
         return interval[::-1]
     return interval
 
+
 def infer_midpoint_freq(
     index: pd.DatetimeIndex,
     closed: ClosedSide | None = None,
@@ -217,7 +218,7 @@ def infer_midpoint_freq(
     ----------
     index : pd.DatetimeIndex
         The index to infer the frequency from.
-    closed: Literal['left', 'right'], default 'left'
+    closed: Literal['left', 'right'], optional
         Whether to align the inferred frequency to the start or the end of the
         period.
 
@@ -229,44 +230,44 @@ def infer_midpoint_freq(
     Raises
     ------
     TypeError
-        If the index is not datetime-like.
+        If the index is not a datetime index.
     ValueError
-        If the index contains too few elements to infer a frequency or if the
+        If the index contains too few labels to infer a frequency or if the
         index is not 1D.
 
     See Also
-    --------
+    --------`
     infer_freq : Infer the frequency of a time index
     """
     if not is_datetime_index(index):
         raise TypeError(
-            f'Expected a datetime-like index, got {type(index)=!r}'
+            f'expected a {pd.DatetimeIndex!r}, got {type(index)!r}'
         )
 
     if index.size < 4:
-        # Pandas needs >= 3 elements, but we lose 1 when calculating the diffs
-        raise ValueError(
-            'An index must have at least 4 values to infer frequency '
-            f'using the midpoint method; got {index.size=!r}'
-        )
+        # Pandas needs >= 3 values, but we lose 1 when calculating the diffs
+        raise ValueError(f'index must have size >= 4; got {index.size=!r}')
 
-    if not index.is_monotonic_increasing:
-        raise ValueError('Index must be monotonic increasing.')
+    if not (index.is_monotonic_increasing or index.is_monotonic_decreasing):
+        raise ValueError('index must be monotonic.')
 
-    if pd.infer_freq(index) == 'D':  # pragma: no cover
-        # Shortcut for daily index
+    if pd.infer_freq(index) == 'D':
+        # Shortcut for daily frequencies
         return 'D'
 
-    delta = pd.to_timedelta(index.diff())  # pyright: ignore [reportAttributeAccessIssue]
+    delta = pd.to_timedelta(index.diff())  # type: ignore[attr-defined]
     left = (index - delta / 2).dropna()
 
-    if (freq := pd.infer_freq(left)) and freq != 'h':
-        # Avoid spurious hourly frequencies
-        return freq
-    # The remaining possibilities are 'MS', 'ME', 'QS', 'QE', 'YS', 'YE' (with
-    # anchors), which are all 'multiples' of monthly frequencies, so we can
-    # snap to a monthly frequency and have pandas attempt to infer the frequency.
-    # Snapping will also conveniently handle the n-1 problem produced by diffing.
+    if freq := pd.infer_freq(left):
+        # Avoid inferring exotic frequencies
+        alias = OffsetAlias.from_freq(freq)
+        if alias.base in {'D', 'W', 'M', 'Q', 'Y'}:
+            return freq
+
+    # The remaining possibilities are  all 'multiples' of monthly frequencies,
+    # so we can snap to a monthly frequency and have pandas attempt to infer
+    # the frequency. Snapping will also conveniently handle the n-1 problem
+    # produced by diffing.
     freq = 'ME' if closed == 'right' else 'MS'
     return pd.infer_freq(left.snap(freq).normalize())
 
