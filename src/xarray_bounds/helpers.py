@@ -91,6 +91,12 @@ def datetime_to_interval(
     offset = pd.tseries.frequencies.to_offset(freq)
     assert is_date_offset(offset)
 
+    if index.tz is not None and offset.n == 1:
+        raise ValueError(
+            '"datetime_to_interval" does not currently handle DST-aware offsets safely. '
+            'Consider converting "index" to UTC.'
+        )
+
     descending = index.is_monotonic_decreasing
     alias = OffsetAlias.from_freq(freq)
     if label is None:
