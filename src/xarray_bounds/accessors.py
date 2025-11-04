@@ -1,16 +1,16 @@
 from collections.abc import Iterator, Mapping
-from typing import Literal
 
 import cf_xarray  # noqa F401
 import numpy.typing as npt
-import pandas as pd
 import xarray as xr
 
-from xarray_bounds.exceptions import NotYetImplementedError
-from xarray_bounds.helpers import infer_bounds
-from xarray_bounds.types import AxisKey, ClosedSide
-from xarray_bounds.utilities import resolve_dim_name, mapping_or_kwargs
+from xarray_bounds.helpers import resolve_dim_name
 from xarray_bounds.options import OPTIONS
+from xarray_bounds.types import AxisKey, IntervalClosed, IntervalLabel
+from xarray_bounds.utilities import (
+    infer_bounds,
+    mapping_or_kwargs,
+)
 
 __all__ = ['DataArrayBoundsAccessor', 'DatasetBoundsAccessor']
 
@@ -170,17 +170,18 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
     ) -> T:
         """Assign new bounds coordinates to this object.
 
-        Returns a new object with all the original data in addition to the new coordinates.
+        Returns a new object with all the original data in addition to the
+        new coordinates.
         """
         obj = self._obj.copy()
         kwargs = mapping_or_kwargs(
             parg=bounds, kwargs=bounds_kwargs, func_name='assign_bounds'
         )
         coords = {}
-        for dim, data in kwargs.items():
-            dim = resolve_dim_name(obj=obj, key=str(dim))
+        for k, v in kwargs.items():
+            dim = resolve_dim_name(obj=obj, key=str(k))
             bounds_name = f'{dim}_{OPTIONS["bounds_dim"]}'
-            coords.update({bounds_name: data})
+            coords.update({bounds_name: v})
             obj = obj.assign_coords(coords)
             obj[dim].attrs['bounds'] = bounds_name
         return obj
