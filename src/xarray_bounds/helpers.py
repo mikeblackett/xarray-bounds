@@ -92,6 +92,7 @@ def datetime_to_interval(
     assert is_date_offset(offset)
 
     descending = index.is_monotonic_decreasing
+    alias = OffsetAlias.from_freq(freq)
     if label is None:
         label = LabelSide.RIGHT if alias.is_end_aligned else LabelSide.LEFT
 
@@ -309,6 +310,10 @@ def resolve_dim_name(obj: xr.Dataset | xr.DataArray, key: str) -> str:
 class OffsetAlias:
     """An object representing a Pandas offset alias: a ``freq`` string.
 
+    This class is not normally instantiated directly. Instead, use
+    `OffsetAlias.from_freq` to parse a frequency string or `pd.DateOffset`
+    object.
+
     Attributes
     ----------
     base : str
@@ -338,21 +343,21 @@ class OffsetAlias:
 
     @property
     def is_end_aligned(self) -> bool:
-        if self.base == 'W':
-            return True
-        return self.alignment == 'E'
+        """Whether the offset alias is end-aligned."""
+        return self.base == 'W' or self.alignment == 'E'
 
     @classmethod
-    def from_pandas(cls, freq: str | pd.DateOffset) -> OffsetAlias:
+    def from_freq(cls, freq: str | pd.DateOffset) -> OffsetAlias:
         """Parse a Pandas offset alias into its components."""
         return _parse_freq(freq)
 
-    def to_string(self):
-        """Return a string representation of the offset alias."""
+    @property
+    def freqstr(self):
+        """String representation of the offset alias."""
         return str(self)
 
     def to_offset(self):
-        """Return the corresponding pandas DateOffset object."""
+        """Corresponding pandas DateOffset object."""
         return pd.tseries.frequencies.to_offset(str(self))
 
 
