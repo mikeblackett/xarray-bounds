@@ -5,7 +5,7 @@ Shamelessly copied from xarray https://github.com/pydata/xarray/blob/main/xarray
 
 from typing import TypedDict
 
-from xarray.core.utils import FrozenDict
+__all__ = ['OPTIONS', 'set_options']
 
 
 class Options(TypedDict):
@@ -26,7 +26,7 @@ _SETTERS = {}
 
 
 class set_options:
-    """Set options for xarray in a controlled context."""
+    """Set options for xarray-bounds in a controlled context."""
 
     def __init__(self, **kwargs):
         self.old = {}
@@ -56,14 +56,3 @@ class set_options:
 
     def __exit__(self, type, value, traceback):
         self._apply_update(self.old)
-
-
-def get_options():
-    """Get options for xarray bounds.
-
-    See Also
-    ----------
-    set_options
-
-    """
-    return FrozenDict(OPTIONS)
