@@ -14,12 +14,19 @@ from xarray_bounds.accessors import (
     DataArrayBoundsAccessor,
     DatasetBoundsAccessor,
 )
-from xarray_bounds.options import get_options, set_options
+from xarray_bounds.core import (
+    bounds_to_interval,
+    infer_bounds,
+    interval_to_bounds,
+)
+from xarray_bounds.options import set_options
 
 __all__ = [
+    '__version__',
+    'bounds_to_interval',
     'DataArrayBoundsAccessor',
     'DatasetBoundsAccessor',
-    'get_options',
-    'utilities',
+    'infer_bounds',
+    'interval_to_bounds',
     'set_options',
 ]
