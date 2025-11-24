@@ -163,6 +163,46 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
             obj = obj.cf.assign_coords({name: v})
             obj[dim].attrs['bounds'] = name
         return cast(T, obj)
+
+    def drop_bounds(self, *dims: str) -> T:
+        """Drop bounds coordinates for the specified dimensions.
+
+        Returns a new object with the specified bounds coordinates removed.
+
+        Parameters
+        ----------
+        *dims : str
+            Names of dimension coordinates to drop bounds for.
+            The names can be any values understood by :py:mod:`cf-xarray`.
+
+        Returns
+        -------
+        T
+            A new object with bounds coordinates removed.
+
+        Raises
+        ------
+        KeyError
+            If a key is not found in the object.
+        ValueError
+            If bounds do not exist for a specified dimension.
+        """
+        obj = self._obj.copy()
+
+        keys = set(dims)
+        if not keys:
+            # default to assigned bounds
+            keys = self.dims
+
+        for key in keys:
+            if key not in self._obj.cf.bounds:
+                raise ValueError(f'No bounds exist for dimension: {key!r}')
+            dim = resolve_dim_name(obj=obj, key=key)
+            name = self[dim].name
+            obj = obj.drop_vars(name)
+            if 'bounds' in obj[dim].attrs:
+                del obj[dim].attrs['bounds']
+        return obj
         return obj
 
     def __repr__(self) -> str:
