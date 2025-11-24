@@ -102,11 +102,15 @@ class TestDatasetBoundsAccessor:
         actual = ds.bnds.infer_bounds()
         assert all(d in actual.bnds for d in missing)
 
-    def test_assign_bounds(self):
+    @hp.given(
+        dim=st.sampled_from(['time', 'T', 'latitude', 'Y', 'longitude', 'X'])
+    )
+    def test_assign_bounds(self, dim: str):
         """Should assign new bounds coordinates to this object."""
         ds = xr.tutorial.open_dataset('air_temperature')
-        expected = ds.copy().cf.add_bounds('time').time_bounds
-        actual = ds.bnds.assign_bounds(time=expected).bnds['time']
+        # Add some bounds with cf_xarray
+        expected = ds.copy().cf.add_bounds(dim).cf.bnds[dim]
+        actual = ds.bnds.assign_bounds(**{dim: expected}).cf.bnds[dim]
         np.testing.assert_array_equal(expected, actual)
 
 

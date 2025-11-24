@@ -138,7 +138,8 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
         Parameters
         ----------
         bounds : Mapping[str, ArrayLike], optional
-            A mapping of dimension names or CF axis keys to bounds arrays.
+            A mapping of dimension names to bounds arrays. The names can be any
+            values understood by :py:mod:`cf-xarray`.
         **bounds_kwargs : ArrayLike
             The keyword arguments form of ``bounds``.
 
@@ -159,8 +160,9 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
         for k, v in kwargs.items():
             dim = resolve_dim_name(obj=obj, key=str(k))
             name = resolve_bounds_name(dim)
-            obj = obj.assign_coords({name: v})
+            obj = obj.cf.assign_coords({name: v})
             obj[dim].attrs['bounds'] = name
+        return cast(T, obj)
         return obj
 
     def __repr__(self) -> str:
