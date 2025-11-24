@@ -60,7 +60,7 @@ class TestOffsetAlias:
     def test_to_offset_with_freq_string(self, freq: str):
         offset_alias = OffsetAlias.from_freq(freq)
         expected = pd.tseries.frequencies.to_offset(freq)
-        actual = offset_alias.to_offset()
+        actual = offset_alias.offset
 
         assert expected == actual
 
@@ -68,7 +68,7 @@ class TestOffsetAlias:
     def test_to_offset_with_date_offset(self, freq: str):
         expected = pd.tseries.frequencies.to_offset(freq)
         offset_alias = OffsetAlias.from_freq(expected)
-        actual = offset_alias.to_offset()
+        actual = offset_alias.offset
 
         assert expected == actual
 

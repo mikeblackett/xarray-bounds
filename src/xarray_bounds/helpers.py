@@ -123,7 +123,8 @@ class OffsetAlias:
         """String representation of the offset alias."""
         return str(self)
 
-    def to_offset(self):
+    @property
+    def offset(self):
         """Corresponding pandas DateOffset object."""
         return pd.tseries.frequencies.to_offset(str(self))
 
