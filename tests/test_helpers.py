@@ -1,40 +1,300 @@
 import hypothesis as hp
-import hypothesis.strategies as st
 import pandas as pd
 import pytest as pt
 import xarray as xr
 import xarray_strategies as xrst
+from hypothesis import strategies as st
 
+import xarray_bounds as xrb
 from xarray_bounds.helpers import (
     OffsetAlias,
+    get_bounds_name,
     mapping_or_kwargs,
+    resolve_axis_name,
     resolve_dim_name,
+    resolve_standard_name,
+    resolve_variable_name,
+    validate_interval_closed,
+    validate_interval_label,
 )
+from xarray_bounds.types import ClosedSide, LabelSide
+
+
+@pt.fixture(scope='class')
+def ds() -> xr.Dataset:
+    return xrb.datasets.simple_bounds
+
+
+class TestValidateIntervalLabel:
+    @hp.given(
+        label=st.one_of(
+            st.none(),
+            st.just('invalid_label'),
+        ),
+        default=st.one_of(
+            st.none(),
+            st.just('invalid_label'),
+        ),
+    )
+    def test_should_raise_value_error_for_invalid_arguments(
+        self, label: str | None, default: str | None
+    ):
+        """Should raise a ValueError for invalid IntervalLabel."""
+        hp.assume(not (label is None and default is None))
+        with pt.raises(ValueError):
+            validate_interval_label(label=label, default=default)
+
+    @hp.given(
+        label=st.one_of(
+            st.none(),
+            st.sampled_from(LabelSide),
+        ),
+        default=st.one_of(
+            st.none(),
+            st.sampled_from(LabelSide),
+        ),
+    )
+    def test_returns_valid_interval_label(
+        self,
+        label: str | None,
+        default: str | None,
+    ):
+        """Should return a valid IntervalLabel."""
+        result = validate_interval_label(
+            label=label,
+            default=default,
+        )
+        assert result in LabelSide
+
+    @hp.given(
+        label=st.one_of(
+            st.sampled_from(LabelSide),
+        ),
+        default=st.one_of(
+            st.none(),
+            st.sampled_from(LabelSide),
+        ),
+    )
+    def test_returns_label_if_label_is_not_none(
+        self,
+        label: str,
+        default: str | None,
+    ):
+        """Should return a valid IntervalLabel."""
+        result = validate_interval_label(
+            label=label,
+            default=default,
+        )
+        assert result == label
+
+    @hp.given(default=st.sampled_from(LabelSide))
+    def test_should_use_default_when_label_is_none(self, default: LabelSide):
+        """Should return the default when label is None."""
+        for default in LabelSide:
+            result = validate_interval_label(label=None, default=default)
+            assert result == default.value
+
+
+class TestValidateIntervalClosed:
+    @hp.given(
+        closed=st.one_of(
+            st.none(),
+            st.just('invalid_closed'),
+        ),
+        default=st.one_of(
+            st.none(),
+            st.just('invalid_closed'),
+        ),
+    )
+    def test_should_raise_value_error_for_invalid_arguments(
+        self, closed: str | None, default: str | None
+    ):
+        """Should raise a ValueError for invalid IntervalClosed."""
+        hp.assume(not (closed is None and default is None))
+        with pt.raises(ValueError):
+            validate_interval_closed(closed=closed, default=default)
+
+    @hp.given(
+        closed=st.one_of(
+            st.none(),
+            st.sampled_from(ClosedSide),
+        ),
+        default=st.one_of(
+            st.none(),
+            st.sampled_from(ClosedSide),
+        ),
+    )
+    def test_returns_valid_interval_closed(
+        self,
+        closed: str | None,
+        default: str | None,
+    ):
+        """Should return a valid IntervalClosed."""
+        result = validate_interval_closed(
+            closed=closed,
+            default=default,
+        )
+        assert result in ClosedSide
+
+    @hp.given(
+        closed=st.one_of(
+            st.sampled_from(ClosedSide),
+        ),
+        default=st.one_of(
+            st.none(),
+            st.sampled_from(ClosedSide),
+        ),
+    )
+    def test_returns_closed_if_closed_is_not_none(
+        self,
+        closed: str,
+        default: str | None,
+    ):
+        """Should return a valid IntervalClosed."""
+        result = validate_interval_closed(
+            closed=closed,
+            default=default,
+        )
+        assert result == closed
+
+    @hp.given(default=st.sampled_from(ClosedSide))
+    def test_should_use_default_when_closed_is_none(self, default: ClosedSide):
+        """Should return the default when closed is None."""
+        for default in ClosedSide:
+            result = validate_interval_closed(closed=None, default=default)
+            assert result == default.value
+
+
+class TestResolveAxisName:
+    @pt.mark.parametrize(
+        'key',
+        [
+            # Coordinate that exists but is not an axis
+            'aux',
+            # Non-existent coordinate
+            'foo',
+        ],
+    )
+    def test_resolve_axis_name_raises_key_error(
+        self, ds: xr.Dataset, key: str
+    ):
+        """Should raise a KeyError if the axis name cannot be resolved."""
+        with pt.raises(KeyError):
+            resolve_axis_name(ds, key)
+
+    @pt.mark.parametrize(
+        'key',
+        [
+            # CF standard_name
+            'longitude',
+            # CF axis name
+            'X',
+            # variable name
+            'lon',
+        ],
+    )
+    def test_resolves_axis_name(self, ds: xr.Dataset, key: str):
+        """Should resolve the axis name from various CF keys."""
+        assert resolve_axis_name(ds, key) == 'X'
+
+
+class TestGetBoundsName:
+    def test_get_bounds_name_raises_key_error(self, ds: xr.Dataset):
+        """Should raise a KeyError if the bounds name cannot be resolved."""
+        with pt.raises(KeyError):
+            get_bounds_name(ds, 'unknown_key')
+
+    @pt.mark.parametrize(
+        'key',
+        [
+            # CF standard_name
+            'latitude',
+            # CF axis name
+            'Y',
+            # variable name
+            'lat',
+        ],
+    )
+    @pt.mark.parametrize('bounds_dim', ['bounds', 'bnds'])
+    def test_gets_bounds_name(self, ds: xr.Dataset, key: str, bounds_dim: str):
+        """Should return the bounds name from various CF keys."""
+        with xrb.set_options(bounds_dim=bounds_dim):
+            assert get_bounds_name(ds, key) == f'lat_{bounds_dim}'
+
+
+class TestResolveStandardName:
+    @pt.mark.parametrize('key', ['aux', 'foo'])
+    def test_resolve_standard_name_raises_key_error(
+        self, ds: xr.Dataset, key: str
+    ):
+        """Should raise a KeyError if the standard name cannot be resolved."""
+        with pt.raises(KeyError):
+            resolve_standard_name(ds, key)
+
+    @pt.mark.parametrize(
+        'key',
+        [
+            # CF standard_name
+            'latitude',
+            # CF axis name
+            'Y',
+            # variable name
+            'lat',
+        ],
+    )
+    def test_resolves_standard_name(self, ds: xr.Dataset, key: str):
+        """Should resolve the standard name from various CF keys."""
+        assert resolve_standard_name(ds, key) == 'latitude'
+
+
+class TestResolveVariableName:
+    def test_resolve_variable_name_raises_key_error(self, ds: xr.Dataset):
+        """Should raise a KeyError if the variable name cannot be resolved."""
+        with pt.raises(KeyError):
+            resolve_variable_name(ds, 'foo')
+
+    @pt.mark.parametrize(
+        'key',
+        [
+            # CF standard_name
+            'latitude',
+            # CF axis name
+            'Y',
+            # variable name
+            'lat',
+        ],
+    )
+    def test_resolves_variable_name(self, ds: xr.Dataset, key: str):
+        """Should resolve the variable name from various CF keys."""
+        assert resolve_variable_name(ds, key) == 'lat'
 
 
 class TestResolveDimName:
-    @hp.given(
-        key=st.sampled_from(
-            [
-                # cf axis
-                'Y',
-                # name
-                'lat',
-                # standard_name
-                'latitude',
-            ]
-        )
-    )
-    def test_resolve_dim(self, key: str):
-        """Should return the dimension name if it exists."""
-        ds = xr.tutorial.load_dataset('air_temperature')
-        assert resolve_dim_name(ds, key) == 'lat'
-
-    @hp.given(key=st.text())
-    def test_resolve_dim_raises_key_error(self, key: str):
-        """Should raise a KeyError if the dimension cannot be resolved."""
+    def test_resolve_dim_name_raises_key_error(self, ds: xr.Dataset):
+        """Should raise a KeyError if the dim name cannot be resolved."""
         with pt.raises(KeyError):
-            resolve_dim_name(xr.DataArray(), key)
+            resolve_dim_name(ds, 'foo')
+
+    @pt.mark.parametrize(
+        'key',
+        [
+            # CF standard_name
+            'time',
+            # CF axis name
+            'T',
+            # variable name
+            'time',
+        ],
+    )
+    @hp.given(flag=st.booleans())
+    def test_resolves_dim_name(self, ds: xr.Dataset, key: str, flag: bool):
+        """Should resolve the dim name from various CF keys."""
+        if flag:
+            # The dim could be named differently from the variable name
+            ds = ds.rename_dims({'time': 'time2'})
+            assert resolve_dim_name(ds, key) == 'time2'
+        else:
+            assert resolve_dim_name(ds, key) == 'time'
 
 
 class TestOffsetAlias:
