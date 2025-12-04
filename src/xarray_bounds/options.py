@@ -13,16 +13,8 @@ class Options(TypedDict):
 
 
 OPTIONS: Options = {
-    'bounds_dim': 'bounds',
+    'bounds_dim': 'bnds',
 }
-
-_BOUNDS_NAME_OPTIONS = ['bounds', 'bnds']
-
-_VALIDATORS = {
-    'bounds_dim': lambda v: v in _BOUNDS_NAME_OPTIONS,
-}
-
-_SETTERS = {}
 
 
 class set_options:
@@ -35,20 +27,10 @@ class set_options:
                 raise ValueError(
                     f'argument name {k!r} is not in the set of valid options {set(OPTIONS)!r}'
                 )
-            if k in _VALIDATORS and not _VALIDATORS[k](v):
-                expected = ''
-                if k == 'bounds_dim':
-                    expected = f'Expected one of {_BOUNDS_NAME_OPTIONS!r}'
-                raise ValueError(
-                    f'option {k!r} given an invalid value: {v!r}. ' + expected
-                )
             self.old[k] = OPTIONS[k]
         self._apply_update(kwargs)
 
     def _apply_update(self, options_dict):
-        for k, v in options_dict.items():
-            if k in _SETTERS:
-                _SETTERS[k](v)
         OPTIONS.update(options_dict)
 
     def __enter__(self):
