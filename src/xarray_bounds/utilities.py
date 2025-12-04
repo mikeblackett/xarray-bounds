@@ -1,7 +1,7 @@
 """Utility functions for inferring interval indices from pandas indices.
 
 These function are publicly exposed, but it is recommended to use the higher-level
-functions in :py:mod:`xarray_bounds.core` instead.
+functions in :py:mod:`xarray_bounds.core`.
 """
 
 from __future__ import annotations
@@ -58,11 +58,18 @@ def infer_interval(
     """
     if is_datetime_index(index):
         return datetime_to_interval(
-            index=index, closed=closed, label=label, name=name
+            index=index,
+            closed=closed,
+            label=label,
+            name=name,
+            normalize=True,
         )
 
     return index_to_interval(
-        index=index, label=label, closed=closed, name=name
+        index=index,
+        label=label,
+        closed=closed,
+        name=name,
     )
 
 

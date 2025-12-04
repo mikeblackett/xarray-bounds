@@ -1,3 +1,3 @@
-from importlib import metadata
+import importlib.metadata
 
-version = metadata.version('xarray_bounds')
+version = importlib.metadata.version('xarray_bounds')
