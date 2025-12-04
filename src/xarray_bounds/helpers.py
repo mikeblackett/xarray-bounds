@@ -17,13 +17,28 @@ from xarray_bounds.options import OPTIONS
 
 __all__ = [
     'resolve_dim_name',
-    'resolve_bounds_name',
-    'OffsetAlias',
-]
+    'resolve_standard_name',
+    'resolve_variable_name',
+def validate_interval_label(
+    label: str | None, default: str | None = None
+) -> IntervalLabel:
+    if label is not None:
+        return LabelSide(label).value
+    if label is None and default is None:
+        return LabelSide.LEFT.value
+    if label is None:
+        return LabelSide(default).value
 
 
-def resolve_dim_name(obj: xr.Dataset | xr.DataArray, key: str) -> str:
-    """Resolve the variable name from an dimension key.
+def validate_interval_closed(
+    closed: str | None, default: str | None = None
+) -> IntervalClosed:
+    if closed is not None:
+        return ClosedSide(closed).value
+    if closed is None and default is None:
+        return ClosedSide.LEFT.value
+    if closed is None:
+        return ClosedSide(default).value
 
     The key can be any value understood by ``cf-xarray``.
 

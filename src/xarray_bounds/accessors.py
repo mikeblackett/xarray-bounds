@@ -203,6 +203,28 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
             if 'bounds' in obj[dim].attrs:
                 del obj[dim].attrs['bounds']
         return obj
+
+    def guess_bounds_axis(self, verbose: bool = False) -> T:
+        """Guesses bounds coordinates and adds appropriate attributes.
+
+        Parameters
+        ----------
+        verbose : bool, default False
+            Print extra info to screen.
+
+        Returns
+        -------
+        T
+            A new object with appropriate attributes added.
+        """
+        obj = self._obj.copy()
+        for k, v in obj.cf.bounds.items():
+            if k not in obj:
+                continue
+            if 'bounds' not in obj[k].attrs:
+                if verbose:
+                    print(f'I think {v[0]!r} is bounds for {k!r}.')
+                obj[k].attrs['bounds'] = v[0]
         return obj
 
     def __repr__(self) -> str:

@@ -6,7 +6,10 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from xarray_bounds.helpers import resolve_bounds_name
+from xarray_bounds.helpers import (
+    validate_interval_closed,
+    validate_interval_label,
+)
 from xarray_bounds.options import OPTIONS
 from xarray_bounds.types import (
     ClosedSide,
@@ -41,8 +44,9 @@ def infer_bounds(
         Which bin edge or midpoint the index labels. If None, defaults to 'left'
         if `closed` is 'left' and 'right' if `closed` is 'right'. Otherwise, defaults
         to 'left'.
-    closed : Literal['left', 'right', 'neither', 'both'], optional
+    closed : Literal['left', 'right'], optional
         The closed side(s) of the interval.
+        If None, defaults to 'left' if `label` is 'left' and 'right' if `label` is 'right'.
 
     Returns
     -------
@@ -65,13 +69,8 @@ def infer_bounds(
             'Bounds are only supported for 1-dimensional coordinates.'
         )
 
-    if label is None and closed is None:
-        label = 'left'
-        closed = 'left'
-    if label is None:
-        label = 'right' if closed == 'right' else 'left'
-    if closed is None:
-        closed = 'right' if label == 'right' else 'left'
+    label = validate_interval_label(label=label, default=closed)
+    closed = validate_interval_closed(closed=closed, default=label)
 
     interval = infer_interval(
         index=index,
