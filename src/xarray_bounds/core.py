@@ -66,8 +66,10 @@ def infer_bounds(
         index = obj.to_index()
     except ValueError:
         raise ValueError(
-            'Bounds are only supported for 1-dimensional coordinates.'
+            'Bounds inference is only supported for 1-dimensional coordinates.'
         )
+
+    obj = obj.copy()
 
     label = validate_interval_label(label=label, default=closed)
     closed = validate_interval_closed(closed=closed, default=label)
@@ -79,23 +81,27 @@ def infer_bounds(
     )
 
     data = np.stack(arrays=(interval.left, interval.right), axis=1)
+
     dim = index.name
-    name = resolve_bounds_name(dim)
-    coord = obj.assign_attrs(bounds=name)
+    coord = obj.name or dim
+    bounds = f'{coord}_{OPTIONS["bounds_dim"]}'
+    obj.attrs['bounds'] = bounds
 
     return xr.DataArray(
         data=data,
-        coords={dim: coord},
+        coords={coord: obj},
         dims=(dim, OPTIONS['bounds_dim']),
-        name=name,
+        name=bounds,
         attrs={'closed': interval.closed},
     )
 
 
 def interval_to_bounds(
     interval: pd.IntervalIndex,
-    label: IntervalLabel = 'left',
+    *,
+    label: IntervalLabel | None = None,
     dim: Hashable | None = None,
+    name: Hashable | None = None,
 ) -> xr.DataArray:
     """Convert a :py:class:`pandas.IntervalIndex` into a boundary coordinate.
 
@@ -103,36 +109,59 @@ def interval_to_bounds(
     ----------
     interval : pd.IntervalIndex
         The interval index to convert.
-    label : Literal['left', 'middle', 'right'], default 'left'
-        Which point the index coordinate should label.
+    label : Literal['left', 'middle', 'right'], optional
+        Which point the index coordinate should label. If None, defaults to the
+        closed side of the interval.
     dim : Hashable, optional
-        The dimension name for the coordinate. If None, uses the name of the
-        interval index.
+        The dimension name for the axis coordinate. If None, defaults to ``interval.name``.
+    name : Hashable, optional
+        The variable name for the axis coordinate. Defaults to the computed value of `dim`.
+        This is only needed if you want the variable name to be different from the dimension name.
 
     Returns
     -------
     DataArray
-        A 2-dimensional boundary variable representing the bounds.
+        A boundary variable with shape ``(n, 2)``.
     """
-    data = np.stack(arrays=(interval.left, interval.right), axis=1)
+    if interval.closed not in ClosedSide:
+        raise ValueError(
+            f'IntervalIndex has unsupported closed attribute: {interval.closed}. '
+            f'Must be one of {list(ClosedSide)}.'
+        )
+
     dim = dim or interval.name
-    name = resolve_bounds_name(dim)
+
+    if dim is None:
+        raise ValueError(
+            'If the interval has no name, a dimension name must be provided.'
+        )
+
+    if name is None:
+        name = dim
+
+    label = validate_interval_label(label=label, default=interval.closed)
+
+    bounds = f'{name}_{OPTIONS["bounds_dim"]}'
+
+    data = np.stack(arrays=(interval.left, interval.right), axis=1)
+    axis = (
+        pd.Index(
+            getattr(interval, 'mid' if label == 'middle' else label),
+            name=dim,
+        )
+        .to_series()
+        .to_xarray()
+        .assign_attrs(bounds=bounds)
+        .cf.guess_coord_axis()
+    )
 
     return xr.DataArray(
         data=data,
         dims=(dim, OPTIONS['bounds_dim']),
-        coords={
-            dim: pd.Index(
-                getattr(interval, 'mid' if label == 'middle' else label),
-                name=dim,
-            )
-            .to_series()
-            .to_xarray()
-            .assign_attrs(bounds=name)
-        },
-        name=name,
+        coords={name: axis},
+        name=bounds,
         attrs={'closed': interval.closed},
-    ).cf.guess_coord_axis()
+    )
 
 
 def bounds_to_interval(obj: xr.DataArray) -> pd.IntervalIndex:
@@ -150,13 +179,17 @@ def bounds_to_interval(obj: xr.DataArray) -> pd.IntervalIndex:
     """
     if obj.ndim != 2:
         raise ValueError(f'bounds must be a 2D DataArray, got {obj.ndim}D.')
+
     if obj.dims[1] != OPTIONS['bounds_dim']:
         raise ValueError(
             f'bounds must have a second dimension named {OPTIONS["bounds_dim"]}.'
         )
+
     closed = ClosedSide(obj.attrs.get('closed', 'left'))
+    dim = obj.dims[0]
+
     return pd.IntervalIndex.from_arrays(
         *obj.transpose(),
         closed=closed.value,
-        name=obj.name,
+        name=dim,
     )

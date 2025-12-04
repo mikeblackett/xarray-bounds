@@ -14,11 +14,23 @@ import xarray as xr
 from attr import dataclass
 
 from xarray_bounds.options import OPTIONS
+from xarray_bounds.types import (
+    ClosedSide,
+    IntervalClosed,
+    IntervalLabel,
+    LabelSide,
+)
 
 __all__ = [
+    'OffsetAlias',
+    'get_bounds_name',
     'resolve_dim_name',
     'resolve_standard_name',
     'resolve_variable_name',
+    'mapping_or_kwargs',
+]
+
+
 def validate_interval_label(
     label: str | None, default: str | None = None
 ) -> IntervalLabel:
@@ -40,13 +52,139 @@ def validate_interval_closed(
     if closed is None:
         return ClosedSide(default).value
 
+
+def resolve_axis_name(obj: xr.Dataset | xr.DataArray, key: Hashable) -> str:
+    """Return the valid CF axis for a given coordinate key.
+
+
+
+    Parameters
+    ----------
+    obj : xr.Dataset | xr.DataArray
+        The xarray object containing the coordinate.
+    key : Hashable
+        The key of a coordinate variable representing an axis.
+        The key can be any value understood by ``cf-xarray``.
+
+
+    Returns
+    -------
+    str
+        The axis name
+
+    Raises
+    ------
+    KeyError
+        If no valid CF axis is found for the given key.
+
+    See Also
+    --------
+    resolve_variable_name
+    """
+    if key in obj.cf.axes:
+        # The key is already an axis name
+        return cast(str, key)
+
+    # Key is either a variable name, standard name or invalid
+    name = resolve_variable_name(obj=obj, key=key)
+
+    # ``cf.axes`` is a mapping of axis name to variable names
+    for axis, names in obj.cf.axes.items():
+        if name in names:
+            return axis
+
+    raise KeyError(f'No valid CF axis found for key {key!r}.')
+
+
+def resolve_standard_name(
+    obj: xr.Dataset | xr.DataArray, key: Hashable
+) -> str:
+    """Return the standard name for a given coordinate key.
+
+    The key can be any value understood by ``cf-xarray``.
+
+    Parameters
+    ----------
+    obj : xr.Dataset | xr.DataArray
+        The xarray object containing the coordinate.
+    key : Hashable
+        The variable name or CF axis key
+
+    Returns
+    -------
+    Hashable
+        The standard name
+
+    Raises
+    ------
+    KeyError
+        If no standard name is found for the given key.
+
+    See Also
+    --------
+    resolve_variable_name
+    """
+    if key in obj.cf.standard_names:
+        # The key is already a standard name
+        return cast(str, key)
+
+    # The key is a variable name, axis name, or invalid
+    variable = resolve_variable_name(obj=obj, key=key)
+
+    # ``cf.standard_names`` is a mapping of standard name to variable names
+    for name in obj.cf.standard_names:
+        if variable in obj.cf.standard_names[name]:
+            return name
+
+    raise KeyError(f'No valid CF coordinate found for key {key!r}.')
+
+
+def resolve_variable_name(
+    obj: xr.Dataset | xr.DataArray, key: Hashable
+) -> Hashable:
+    """Return the variable name for a given coordinate key.
+
+    The key can be any value understood by ``cf-xarray``.
+
+    Parameters
+    ----------
+    obj : xr.Dataset | xr.DataArray
+        The xarray object containing the coordinate.
+    key : Hashable
+        The standard name or CF axis key
+
+    Returns
+    -------
+    Hashable
+        The variable name
+
+    Raises
+    ------
+    KeyError
+        If no variable is found for the given key.
+
+    See Also
+    --------
+    resolve_standard_name
+    """
+    try:
+        return obj.cf[key].name
+    except KeyError:
+        raise KeyError(f'No variable found for key {key!r}.')
+
+
+def resolve_dim_name(
+    obj: xr.Dataset | xr.DataArray, key: Hashable
+) -> Hashable:
+    """Return the dimension name associated with a coordinate key.
+
     The key can be any value understood by ``cf-xarray``.
 
     Parameters
     ----------
     obj : xr.Dataset | xr.DataArray
         The xarray object to get the dimension name from
-    key : str
+    key : Hashable
         The dimension name or CF axis key
 
     Returns
@@ -59,33 +197,39 @@ def validate_interval_closed(
     KeyError
         If no dimension is found for the given axis.
     """
+
     if key in obj.dims:
+        # The key is already a dimension name
         return key
-    try:
-        # cf-xarray will raise if the key is not found...
-        dim = obj.cf[key].name
-        # but it might find a variable that is not a dimension.
-        if dim not in obj.dims:
-            raise KeyError
-    except KeyError:
-        raise KeyError(f'No dimension found for key {key!r}.')
+
+    # Key is either a variable name or standard name
+    variable = resolve_variable_name(obj=obj, key=key)
+
+    dim, *_ = obj[variable].dims
     return dim
 
 
-def resolve_bounds_name(dim: Hashable) -> str:
-    """Get the standard name for bounds of a given dimension.
+def get_bounds_name(obj: xr.DataArray | xr.Dataset, key: Hashable) -> str:
+    """Infer the variable name for a bounds coordinate.
+
+    The bounds name will be constructed using the variable name resolved from the
+    given key and appending the bounds dimension name from the global options.
+    You can set the bounds dimension name using `xarray_bounds.set_options`.
 
     Parameters
     ----------
-    dim : Hashable
-        The dimension name.
+    obj : xr.DataArray | xr.Dataset
+        The xarray object containing the coordinate.
+    key : Hashable
+        The coordinate key for which to get the bounds name.
 
     Returns
     -------
     str
-        The standard name for the bounds coordinate.
+        The variable name for the bounds coordinate.
     """
-    return f'{dim}_{OPTIONS["bounds_dim"]}'
+    name = resolve_variable_name(obj=obj, key=key)
+    return f'{name}_{OPTIONS["bounds_dim"]}'
 
 
 @dataclass(frozen=True)
