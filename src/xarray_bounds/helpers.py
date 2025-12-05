@@ -13,7 +13,6 @@ import pandas as pd
 import xarray as xr
 from attr import dataclass
 
-from xarray_bounds.options import OPTIONS
 from xarray_bounds.types import (
     ClosedSide,
     IntervalClosed,
@@ -23,8 +22,6 @@ from xarray_bounds.types import (
 
 __all__ = [
     'OffsetAlias',
-    'get_bounds_name',
-    'resolve_dim_name',
     'resolve_standard_name',
     'resolve_variable_name',
     'mapping_or_kwargs',
@@ -171,65 +168,6 @@ def resolve_variable_name(
         return obj.cf[key].name
     except KeyError:
         raise KeyError(f'No variable found for key {key!r}.')
-
-
-def resolve_dim_name(
-    obj: xr.Dataset | xr.DataArray, key: Hashable
-) -> Hashable:
-    """Return the dimension name associated with a coordinate key.
-
-    The key can be any value understood by ``cf-xarray``.
-
-    Parameters
-    ----------
-    obj : xr.Dataset | xr.DataArray
-        The xarray object to get the dimension name from
-    key : Hashable
-        The dimension name or CF axis key
-
-    Returns
-    -------
-    str
-        The dimension name
-
-    Raises
-    ------
-    KeyError
-        If no dimension is found for the given axis.
-    """
-
-    if key in obj.dims:
-        # The key is already a dimension name
-        return key
-
-    # Key is either a variable name or standard name
-    variable = resolve_variable_name(obj=obj, key=key)
-
-    dim, *_ = obj[variable].dims
-    return dim
-
-
-def get_bounds_name(obj: xr.DataArray | xr.Dataset, key: Hashable) -> str:
-    """Infer the variable name for a bounds coordinate.
-
-    The bounds name will be constructed using the variable name resolved from the
-    given key and appending the bounds dimension name from the global options.
-    You can set the bounds dimension name using `xarray_bounds.set_options`.
-
-    Parameters
-    ----------
-    obj : xr.DataArray | xr.Dataset
-        The xarray object containing the coordinate.
-    key : Hashable
-        The coordinate key for which to get the bounds name.
-
-    Returns
-    -------
-    str
-        The variable name for the bounds coordinate.
-    """
-    name = resolve_variable_name(obj=obj, key=key)
-    return f'{name}_{OPTIONS["bounds_dim"]}'
 
 
 @dataclass(frozen=True)

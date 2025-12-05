@@ -8,10 +8,8 @@ from hypothesis import strategies as st
 import xarray_bounds as xrb
 from xarray_bounds.helpers import (
     OffsetAlias,
-    get_bounds_name,
     mapping_or_kwargs,
     resolve_axis_name,
-    resolve_dim_name,
     resolve_standard_name,
     resolve_variable_name,
     validate_interval_closed,
@@ -198,30 +196,6 @@ class TestResolveAxisName:
         assert resolve_axis_name(ds, key) == 'X'
 
 
-class TestGetBoundsName:
-    def test_get_bounds_name_raises_key_error(self, ds: xr.Dataset):
-        """Should raise a KeyError if the bounds name cannot be resolved."""
-        with pt.raises(KeyError):
-            get_bounds_name(ds, 'unknown_key')
-
-    @pt.mark.parametrize(
-        'key',
-        [
-            # CF standard_name
-            'latitude',
-            # CF axis name
-            'Y',
-            # variable name
-            'lat',
-        ],
-    )
-    @pt.mark.parametrize('bounds_dim', ['bounds', 'bnds'])
-    def test_gets_bounds_name(self, ds: xr.Dataset, key: str, bounds_dim: str):
-        """Should return the bounds name from various CF keys."""
-        with xrb.set_options(bounds_dim=bounds_dim):
-            assert get_bounds_name(ds, key) == f'lat_{bounds_dim}'
-
-
 class TestResolveStandardName:
     @pt.mark.parametrize('key', ['aux', 'foo'])
     def test_resolve_standard_name_raises_key_error(
@@ -267,34 +241,6 @@ class TestResolveVariableName:
     def test_resolves_variable_name(self, ds: xr.Dataset, key: str):
         """Should resolve the variable name from various CF keys."""
         assert resolve_variable_name(ds, key) == 'lat'
-
-
-class TestResolveDimName:
-    def test_resolve_dim_name_raises_key_error(self, ds: xr.Dataset):
-        """Should raise a KeyError if the dim name cannot be resolved."""
-        with pt.raises(KeyError):
-            resolve_dim_name(ds, 'foo')
-
-    @pt.mark.parametrize(
-        'key',
-        [
-            # CF standard_name
-            'time',
-            # CF axis name
-            'T',
-            # variable name
-            'time',
-        ],
-    )
-    @hp.given(flag=st.booleans())
-    def test_resolves_dim_name(self, ds: xr.Dataset, key: str, flag: bool):
-        """Should resolve the dim name from various CF keys."""
-        if flag:
-            # The dim could be named differently from the variable name
-            ds = ds.rename_dims({'time': 'time2'})
-            assert resolve_dim_name(ds, key) == 'time2'
-        else:
-            assert resolve_dim_name(ds, key) == 'time'
 
 
 class TestOffsetAlias:
