@@ -9,6 +9,7 @@ This module will undergo significant breaking changes when xarray adds support
 for ``CFIntervalIndex``. See https://github.com/pydata/xarray/pull/10296 for details.
 """
 
+from xarray_bounds import datasets
 from xarray_bounds._version import version as __version__
 from xarray_bounds.accessors import (
     DataArrayBoundsAccessor,
@@ -26,6 +27,7 @@ __all__ = [
     'bounds_to_interval',
     'DataArrayBoundsAccessor',
     'DatasetBoundsAccessor',
+    'datasets',
     'infer_bounds',
     'interval_to_bounds',
     'set_options',
