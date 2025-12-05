@@ -51,32 +51,25 @@ def validate_interval_closed(
 
 
 def resolve_axis_name(obj: xr.Dataset | xr.DataArray, key: Hashable) -> str:
-    """Return the valid CF axis for a given coordinate key.
-
-
+    """Return the valid Axis standard name for a given key.
 
     Parameters
     ----------
     obj : xr.Dataset | xr.DataArray
-        The xarray object containing the coordinate.
+        An xarray object.
     key : Hashable
-        The key of a coordinate variable representing an axis.
-        The key can be any value understood by ``cf-xarray``.
-
+        The name of a variable.
+        Can be any alias understood by :py:mod:`cf_xarray`.
 
     Returns
     -------
     str
-        The axis name
+        The valid Axis standard name
 
     Raises
     ------
     KeyError
-        If no valid CF axis is found for the given key.
-
-    See Also
-    --------
-    resolve_variable_name
+        If no valid Axis standard name is found for the given key.
     """
     if key in obj.cf.axes:
         # The key is already an axis name
@@ -96,16 +89,15 @@ def resolve_axis_name(obj: xr.Dataset | xr.DataArray, key: Hashable) -> str:
 def resolve_standard_name(
     obj: xr.Dataset | xr.DataArray, key: Hashable
 ) -> str:
-    """Return the standard name for a given coordinate key.
-
-    The key can be any value understood by ``cf-xarray``.
+    """Return the standard name for a given key.
 
     Parameters
     ----------
     obj : xr.Dataset | xr.DataArray
-        The xarray object containing the coordinate.
+        An xarray object.
     key : Hashable
-        The variable name or CF axis key
+        The name of a variable.
+        Can be any alias understood by :py:mod:`cf_xarray`.
 
     Returns
     -------
@@ -116,10 +108,6 @@ def resolve_standard_name(
     ------
     KeyError
         If no standard name is found for the given key.
-
-    See Also
-    --------
-    resolve_variable_name
     """
     if key in obj.cf.standard_names:
         # The key is already a standard name
@@ -139,16 +127,15 @@ def resolve_standard_name(
 def resolve_variable_name(
     obj: xr.Dataset | xr.DataArray, key: Hashable
 ) -> Hashable:
-    """Return the variable name for a given coordinate key.
-
-    The key can be any value understood by ``cf-xarray``.
+    """Return the variable name for a given key.
 
     Parameters
     ----------
     obj : xr.Dataset | xr.DataArray
-        The xarray object containing the coordinate.
+        An xarray object.
     key : Hashable
-        The standard name or CF axis key
+        The name of a variable.
+        Can be any alias understood by :py:mod:`cf_xarray`.
 
     Returns
     -------
@@ -159,10 +146,6 @@ def resolve_variable_name(
     ------
     KeyError
         If no variable is found for the given key.
-
-    See Also
-    --------
-    resolve_standard_name
     """
     try:
         return obj.cf[key].name
@@ -172,11 +155,10 @@ def resolve_variable_name(
 
 @dataclass(frozen=True)
 class OffsetAlias:
-    """An object representing a Pandas offset alias: a ``freq`` string.
+    """An object representing a parsed Pandas offset alias: a ``freq`` string.
 
-    This class is not normally instantiated directly. Instead, use
-    `OffsetAlias.from_freq` to parse a frequency string or `pd.DateOffset`
-    object.
+    This class is not normally instantiated directly.
+    Instead, use ``OffsetAlias.from_freq`` to parse a frequency string or ``pd.DateOffset`` object.
 
     Attributes
     ----------
@@ -234,14 +216,14 @@ def _parse_freq(
     Parameters
     ----------
     freq : str | pd.DateOffset
-        The frequency to parse
+        A pandas frequency string or DateOffset object.
     is_period : bool, default False
         Whether the frequency is for a period.
 
     Returns
     -------
     OffsetAlias
-        A object representing the parsed frequency.
+        An object representing the parsed frequency.
 
     Raises
     ------
@@ -274,7 +256,22 @@ def mapping_or_kwargs[T](
     kwargs: Mapping[str, T],
     func_name: str,
 ) -> Mapping[Hashable, T]:
-    """Return a mapping of arguments from either keyword arguments or a positional argument mapping."""
+    """Return a mapping of arguments from either keyword arguments or a positional argument mapping.
+
+    Parameters
+    ----------
+    parg : Mapping[Any, T] | None
+        A mapping of arguments passed as a positional argument.
+    kwargs : Mapping[str, T]
+        A mapping of arguments passed as keyword arguments.
+    func_name : str
+        The name of the function for error messages.
+
+    Returns
+    -------
+    Mapping[Hashable, T]
+        A mapping of arguments.
+    """
     if parg is None or parg == {}:
         return cast(Mapping[Hashable, T], kwargs)
     if kwargs:

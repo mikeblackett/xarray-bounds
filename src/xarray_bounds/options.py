@@ -18,7 +18,7 @@ OPTIONS: Options = {
 
 
 class set_options:
-    """Set options for xarray-bounds in a controlled context."""
+    """Set options for :py:mod:`xarray_bounds` in a controlled context."""
 
     def __init__(self, **kwargs):
         self.old = {}

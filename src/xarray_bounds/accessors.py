@@ -23,9 +23,9 @@ BOUNDS_ACCESSOR_NAME = 'bnds'
 class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
     Mapping[Hashable, xr.DataArray]
 ):
-    """Xarray accessor for CF boundary coordinates.
+    """Xarray accessor for CF boundary variables.
 
-    This accessor returns a mapping of variable names to CF boundary coordinates.
+    This accessor returns a mapping of variable names to boundary variables.
     """
 
     def __init__(self, obj: T) -> None:
@@ -45,40 +45,40 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
             if key in self._obj.coords
         }
 
-    def _resolve_key(self, key: Hashable) -> Hashable:
-        """Resolve a key to a canonical variable name in the bounds mapping.
+    def _resolve_key(self, alias: Hashable) -> Hashable:
+        """Resolve a canonical key in the bounds mapping.
 
         Parameters
         ----------
-        key : Hashable
-            The key to resolve. The key can be any value understood by
-            :py:mod:`cf-xarray`.
+        alias : Hashable
+            An alias for the key to resolve.
+            Can be any value understood by :py:mod:`cf_xarray`.
 
         Returns
         -------
         Hashable
-            The canonical variable name.
+            The canonical key.
         """
+        if alias in self._data:
+            return alias
+        key = resolve_variable_name(obj=self._obj, key=alias)
         if key in self._data:
             return key
-        key = resolve_variable_name(obj=self._obj, key=key)
-        if key in self._data:
-            return key
-        raise KeyError(f'No bounds found for key: {key!r}')
+        raise KeyError(f'No bounds found for alias: {alias!r}')
 
     def __getitem__(self, key: Hashable) -> xr.DataArray:
-        """Return the boundary coordinate for the specified key.
+        """Return the bounds for the specified key.
 
         Parameters
         ----------
         key : str
-            The key of the coordinate to get bounds for. The key can be any
-            value understood by :py:mod:`cf-xarray`.
+            The name of a coordinate.
+            The name can be any alias understood by :py:mod:`cf_xarray`.
 
         Returns
         -------
         DataArray
-            The boundary coordinate.
+            The bounds variable.
 
         Raises
         ------
@@ -101,7 +101,19 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
         )
 
     def __contains__(self, key: object) -> bool:
-        """Return True if bounds exist for the specified key."""
+        """Return True if bounds exist for the specified key.
+
+        Parameters
+        ----------
+        key : Hashable
+            The name of a coordinate.
+            The name can be any alias understood by :py:mod:`cf_xarray`.
+
+        Returns
+        -------
+        bool
+            ``True`` if bounds exist for the specified key, ``False`` otherwise.
+        """
         try:
             self._resolve_key(key)
             return True
@@ -109,12 +121,24 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
             return False
 
     def __iter__(self) -> Iterator[Hashable]:
-        """Iterate over the canonical keys in the bounds mapping."""
+        """Iterate over the canonical keys in the bounds mapping.
+
+        Returns
+        -------
+        Iterator[Hashable]
+            An iterator over the canonical keys.
+        """
         for key in self._data:
             yield str(key)
 
     def __len__(self) -> int:
-        """Return the number of coordinates with bounds defined."""
+        """Return the number of bounds in this object.
+
+        Returns
+        -------
+        int
+            The number of bounds in this object.
+        """
         return len(self._data)
 
     @property
@@ -126,7 +150,7 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
 
     @property
     def variable_names(self) -> dict[Hashable, Hashable]:
-        """Mapping of variable names to boundary variable names."""
+        """Mapping of variable names to bounds names."""
         return {
             key: value
             for key, value in self._obj.cf.bounds.items()
@@ -135,7 +159,7 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
 
     @property
     def axes(self) -> dict[str, Hashable]:
-        """Mapping of CF axis names to boundary variable names."""
+        """Mapping of valid Axis standard names to bounds names."""
         return {
             key: value
             for key, value in self._obj.cf.bounds.items()
@@ -144,7 +168,7 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
 
     @property
     def standard_names(self) -> dict[str, Hashable]:
-        """Mapping of CF standard names to boundary variable names."""
+        """Mapping of standard names to bounds names."""
         return {
             key: value
             for key, value in self._obj.cf.bounds.items()
@@ -153,7 +177,7 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
 
     @property
     def coordinates(self) -> dict[str, Hashable]:
-        """Mapping of CF coordinate names to boundary variable names."""
+        """Mapping of valid Coordinate standard names to bounds names."""
         return {
             key: value
             for key, value in self._obj.cf.bounds.items()
@@ -162,7 +186,7 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
 
     @property
     def sizes(self) -> dict[Hashable, Mapping[Hashable, int]]:
-        """Mapping of dimension names to their bounds sizes."""
+        """Mapping of dimension names to bounds sizes."""
         return {key: value.sizes for key, value in self._data.items()}
 
     def infer_bounds(
@@ -171,31 +195,25 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
         closed: IntervalClosed | None = None,
         label: IntervalLabel | None = None,
     ) -> T:
-        """Infer boundary coordinates for the specified coordinates and assign
-        them to this object.
+        """Infer bounds for the specified coordinates and assign them to this object.
 
-        The coordinates must be variables with a valid CF standard name.
-
-        Returns a new object with all the original original coordinates in
-        addition to the new boundary coordinates.
+        Returns a new object with all the original data in addition to the new bounds.
 
         Parameters
         ----------
         *keys : str
-            Keys of coordinate to add bounds for.
-            The ``keys`` can be any values
-            understood by :py:mod:`cf-xarray`.
-            If no ``keys`` are provided, bounds will be inferred for all
-            available CF axes.
+            Names of coordinates.
+            Can be any alias understood by :py:mod:`cf_xarray`.
+            If no keys are provided, bounds will be inferred for all available axes.
         label : Literal['left', 'middle', 'right'], optional
-            Which bin edge or midpoint the index labels.
+            Which side or midpoint of the interval the index labels.
         closed : Literal['left', 'right'], optional
-            Which side of bin interval is closed.
+            Which side of the interval is closed.
 
         Returns
         -------
-        Dataset
-            A new object with bounds coordinates added.
+        T
+            A new object with bounds variables added and appropriate attributes set.
 
         Raises
         ------
@@ -227,23 +245,23 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
         bounds: Mapping[str, npt.ArrayLike] | None = None,
         **bounds_kwargs: npt.ArrayLike,
     ) -> T:
-        """Assign new bounds coordinates to this object.
+        """Assign boundary variables to this object.
 
         Returns a new object with all the original data in addition to the
-        new coordinates.
+        new bounds.
 
         Parameters
         ----------
         bounds : Mapping[str, ArrayLike], optional
-            A mapping of coordinate keys to bounds arrays. The keys can be any
-            values understood by :py:mod:`cf-xarray`.
+            A mapping of coordinate names to bounds arrays.
+            The names can be any aliases understood by :py:mod:`cf_xarray`.
         **bounds_kwargs : ArrayLike
             The keyword arguments form of ``bounds``.
 
         Returns
         -------
         T
-            A new object with bounds coordinates added.
+            A new object with bounds variables added.
 
         Raises
         ------
@@ -261,21 +279,20 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
         return cast(T, obj)
 
     def drop_bounds(self, *keys: str) -> T:
-        """Drop bounds coordinates for the specified coordinates.
+        """Drop bounds variables for the specified coordinates.
 
-        Returns a new object with the specified bounds coordinates and
-        associated metadata removed.
+        Returns a new object with the specified bounds variables and associated metadata removed.
 
         Parameters
         ----------
         *keys : str
-            Keys for coordinates to drop bounds for.
-            The keys can be any values understood by :py:mod:`cf-xarray`.
+            Names of coordinates to drop bounds for.
+            The names can be any aliases understood by :py:mod:`cf_xarray`.
 
         Returns
         -------
         T
-            A new object with bounds coordinates removed.
+            A new object with bounds variables removed.
 
         Raises
         ------
@@ -310,8 +327,8 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
 
 
 @xr.register_dataset_accessor(BOUNDS_ACCESSOR_NAME)
-class DatasetBoundsAccessor(BoundsAccessor):
-    """An object for adding bounds coordinates to xarray Dataset objects."""
+class DatasetBoundsAccessor(BoundsAccessor[xr.Dataset]):
+    """An object for adding bounds variables to xarray Dataset objects."""
 
     pass
 
