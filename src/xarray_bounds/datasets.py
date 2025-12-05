@@ -2,6 +2,10 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+from xarray_bounds import options
+
+BOUNDS_DIM = options.OPTIONS['bounds_dim']
+
 # --------------------------------------------------- Simple 1D coordinate axes
 time = xr.DataArray(
     data=pd.to_datetime(
@@ -24,9 +28,9 @@ time_bounds = xr.DataArray(
         pd.DatetimeIndex(['2000-01-03', '2000-01-04']),
         pd.DatetimeIndex(['2000-01-04', '2000-01-05']),
     ],
-    dims=('time', 'bounds'),
+    dims=('time', BOUNDS_DIM),
     coords={'time': time},
-    name='time_bounds',
+    name=f'time_{BOUNDS_DIM}',
 )
 
 lat_1d = xr.DataArray(
@@ -42,9 +46,9 @@ lat_1d_bounds = xr.DataArray(
         [95, 105],
         [105, 115],
     ],
-    dims=('lat', 'bounds'),
+    dims=('lat', BOUNDS_DIM),
     coords={'lat': lat_1d},
-    name='lat_bounds',
+    name=f'lat_{BOUNDS_DIM}',
 )
 
 lon_1d = xr.DataArray(
@@ -59,9 +63,9 @@ lon_1d_bounds = xr.DataArray(
         [175, 185],
         [185, 195],
     ],
-    dims=('lon', 'bounds'),
+    dims=('lon', BOUNDS_DIM),
     coords={'lon': lon_1d},
-    name='lon_bounds',
+    name=f'lon_{BOUNDS_DIM}',
 )
 
 aux = xr.DataArray(
@@ -96,9 +100,9 @@ simple = xr.Dataset(
 simple_bounds = simple.copy(deep=False)
 simple_bounds = simple_bounds.assign_coords(
     {
-        'time_bounds': time_bounds,
-        'lat_bounds': lat_1d_bounds,
-        'lon_bounds': lon_1d_bounds,
+        f'time_{BOUNDS_DIM}': time_bounds,
+        f'lat_{BOUNDS_DIM}': lat_1d_bounds,
+        f'lon_{BOUNDS_DIM}': lon_1d_bounds,
     }
 ).assign_attrs(
     {
@@ -106,9 +110,9 @@ simple_bounds = simple_bounds.assign_coords(
         + ' and boundary coordinate variables added.',
     }
 )
-simple_bounds['time'].attrs['bounds'] = 'time_bounds'
-simple_bounds['lat'].attrs['bounds'] = 'lat_bounds'
-simple_bounds['lon'].attrs['bounds'] = 'lon_bounds'
+simple_bounds['time'].attrs['bounds'] = f'time_{BOUNDS_DIM}'
+simple_bounds['lat'].attrs['bounds'] = f'lat_{BOUNDS_DIM}'
+simple_bounds['lon'].attrs['bounds'] = f'lon_{BOUNDS_DIM}'
 
 
 # --------------------------------------------------- Simple 2D coordinate axes
@@ -128,9 +132,9 @@ xc_bounds = xr.DataArray(
         [500.0, 1250.0],
         [1250.0, 1750.0],
     ],
-    dims=('xc', 'bounds'),
+    dims=('xc', BOUNDS_DIM),
     coords={'xc': xc},
-    name='xc_bounds',
+    name=f'xc_{BOUNDS_DIM}',
 )
 
 yc = xr.DataArray(
@@ -150,9 +154,9 @@ yc_bounds = xr.DataArray(
         [-3750.0, -3000.0],
         [-3000.0, -2500.0],
     ],
-    dims=('yc', 'bounds'),
+    dims=('yc', BOUNDS_DIM),
     coords={'yc': yc},
-    name='yc_bounds',
+    name=f'yc_{BOUNDS_DIM}',
 )
 
 lat_2d = xr.DataArray(
@@ -214,6 +218,6 @@ simple_2d_bounds = simple_2d_bounds.assign_coords(
         + ' and boundary coordinate variables added.',
     }
 )
-simple_2d_bounds['time'].attrs['bounds'] = 'time_bounds'
-simple_2d_bounds['xc'].attrs['bounds'] = 'xc_bounds'
-simple_2d_bounds['yc'].attrs['bounds'] = 'yc_bounds'
+simple_2d_bounds['time'].attrs['bounds'] = f'time_{BOUNDS_DIM}'
+simple_2d_bounds['xc'].attrs['bounds'] = f'xc_{BOUNDS_DIM}'
+simple_2d_bounds['yc'].attrs['bounds'] = f'yc_{BOUNDS_DIM}'
