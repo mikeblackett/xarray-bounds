@@ -1,4 +1,5 @@
 from collections.abc import Hashable, Iterator, Mapping
+from typing import cast
 
 import cf_xarray  # noqa F401
 import numpy.typing as npt
@@ -8,9 +9,9 @@ from xarray.core import formatting
 from xarray_bounds.core import infer_bounds
 from xarray_bounds.helpers import (
     mapping_or_kwargs,
-    resolve_bounds_name,
-    resolve_dim_name,
+    resolve_variable_name,
 )
+from xarray_bounds.options import OPTIONS
 from xarray_bounds.types import IntervalClosed, IntervalLabel
 
 __all__ = ['DataArrayBoundsAccessor', 'DatasetBoundsAccessor']
@@ -20,11 +21,11 @@ BOUNDS_ACCESSOR_NAME = 'bnds'
 
 
 class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
-    Mapping[str, xr.DataArray]
+    Mapping[Hashable, xr.DataArray]
 ):
-    """Accessor for Xarray boundary coordinates.
+    """Xarray accessor for CF boundary coordinates.
 
-    This accessor returns a mapping of coordinate names to their boundary coordinates.
+    This accessor returns a mapping of variable names to CF boundary coordinates.
     """
 
     def __init__(self, obj: T) -> None:
@@ -35,57 +36,145 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
         Parameters
         ----------
         obj : Dataset | DataArray
-            The xarray object to add bounds to.
+            The xarray object to add the bounds accessor to.
         """
         self._obj: T = obj.copy()
-
-    @property
-    def _data(self) -> Mapping[Hashable, xr.DataArray]:
-        return {
-            k: self._obj.coords[v[0]]
-            for k, v in self._obj.cf.bounds.items()
-            if k in self._obj.coords
+        self._data = {
+            key: self._obj.coords[value[0]]
+            for key, value in self._obj.cf.bounds.items()
+            if key in self._obj.coords
         }
 
+    def _resolve_key(self, key: Hashable) -> Hashable:
+        """Resolve a key to a canonical variable name in the bounds mapping.
+
+        Parameters
+        ----------
+        key : Hashable
+            The key to resolve. The key can be any value understood by
+            :py:mod:`cf-xarray`.
+
+        Returns
+        -------
+        Hashable
+            The canonical variable name.
+        """
+        if key in self._data:
+            return key
+        key = resolve_variable_name(obj=self._obj, key=key)
+        if key in self._data:
+            return key
+        raise KeyError(f'No bounds found for key: {key!r}')
+
     def __getitem__(self, key: Hashable) -> xr.DataArray:
-        return self._data[key]
+        """Return the boundary coordinate for the specified key.
 
-    def __iter__(self) -> Iterator[str]:
-        for k in self._data:
-            yield str(k)
+        Parameters
+        ----------
+        key : str
+            The key of the coordinate to get bounds for. The key can be any
+            value understood by :py:mod:`cf-xarray`.
 
-    def __len__(self):
+        Returns
+        -------
+        DataArray
+            The boundary coordinate.
+
+        Raises
+        ------
+        KeyError
+            If the key is not found in the object.
+        """
+        canonical = self._resolve_key(key)
+        return self._data[canonical]
+
+    def __contains__(self, key: object) -> bool:
+        """Return True if bounds exist for the specified key."""
+        try:
+            self._resolve_key(key)
+            return True
+        except Exception:
+            return False
+
+    def __iter__(self) -> Iterator[Hashable]:
+        """Iterate over the canonical keys in the bounds mapping."""
+        for key in self._data:
+            yield str(key)
+
+    def __len__(self) -> int:
+        """Return the number of coordinates with bounds defined."""
         return len(self._data)
 
     @property
-    def dims(self) -> set[Hashable]:
-        """Set of dimension names for which bounds are defined."""
-        return set(self._data.keys())
+    def dims(self) -> tuple[Hashable, ...]:
+        """Tuple of dimension names associated with this object's bounds."""
+        dims = {dim for obj in self.values() for dim in obj.dims}
+        # Return dims in the same order as _obj.dims
+        return tuple(dim for dim in self._obj.dims if dim in dims)
+
+    @property
+    def variable_names(self) -> dict[Hashable, Hashable]:
+        """Mapping of variable names to boundary variable names."""
+        return {
+            key: value
+            for key, value in self._obj.cf.bounds.items()
+            if key in self._obj.coords
+        }
+
+    @property
+    def axes(self) -> dict[str, Hashable]:
+        """Mapping of CF axis names to boundary variable names."""
+        return {
+            key: value
+            for key, value in self._obj.cf.bounds.items()
+            if key in self._obj.cf.axes
+        }
+
+    @property
+    def standard_names(self) -> dict[str, Hashable]:
+        """Mapping of CF standard names to boundary variable names."""
+        return {
+            key: value
+            for key, value in self._obj.cf.bounds.items()
+            if key in self._obj.cf.standard_names
+        }
+
+    @property
+    def coordinates(self) -> dict[str, Hashable]:
+        """Mapping of CF coordinate names to boundary variable names."""
+        return {
+            key: value
+            for key, value in self._obj.cf.bounds.items()
+            if key in self._obj.cf.coordinates
+        }
 
     @property
     def sizes(self) -> dict[Hashable, Mapping[Hashable, int]]:
         """Mapping of dimension names to their bounds sizes."""
-        return {k: v.sizes for k, v in self._data.items()}
+        return {key: value.sizes for key, value in self._data.items()}
 
     def infer_bounds(
         self,
-        *dims: str,
+        *keys: str,
         closed: IntervalClosed | None = None,
         label: IntervalLabel | None = None,
     ) -> T:
-        """Infer boundary coordinates for the specified dimensions and assign
+        """Infer boundary coordinates for the specified coordinates and assign
         them to this object.
+
+        The coordinates must be variables with a valid CF standard name.
 
         Returns a new object with all the original original coordinates in
         addition to the new boundary coordinates.
 
         Parameters
         ----------
-        *dims : str
-            Names of dimension coordinates to add bounds for.
-            If no ``dims`` are provided, bounds will be added for all
-            available dimensions. The ``dims`` can be any values
+        *keys : str
+            Keys of coordinate to add bounds for.
+            The ``keys`` can be any values
             understood by :py:mod:`cf-xarray`.
+            If no ``keys`` are provided, bounds will be inferred for all
+            available CF axes.
         label : Literal['left', 'middle', 'right'], optional
             Which bin edge or midpoint the index labels.
         closed : Literal['left', 'right'], optional
@@ -110,19 +199,15 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
             If bounds already exist for a specified dimension.
         """
         obj = self._obj.copy()
-        keys = set(dims)
-        if not keys:
-            # default to all missing axes
-            keys = set(self._obj.cf.axes) - set(self._obj.cf.bounds)
+        names = set(keys)
+        if not names:
+            names = set(self._obj.cf.axes) - set(self.axes)
         coords = {}
-        for key in keys:
-            if key in getattr(obj, BOUNDS_ACCESSOR_NAME):
-                raise ValueError(
-                    f'Bounds already exist for dimension: {key!r}'
-                )
-            dim = resolve_dim_name(obj=obj, key=key)
-            _bounds = infer_bounds(obj=obj[dim], closed=closed, label=label)
-            coords.update({_bounds.name: _bounds})
+        for name in names:
+            if name in self:
+                raise ValueError(f'Bounds already exist for key: {name!r}')
+            bounds = infer_bounds(obj=obj.cf[name], closed=closed, label=label)
+            coords.update({bounds.name: bounds})
         return obj.assign_coords(coords)
 
     def assign_bounds(
@@ -138,7 +223,7 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
         Parameters
         ----------
         bounds : Mapping[str, ArrayLike], optional
-            A mapping of dimension names to bounds arrays. The names can be any
+            A mapping of coordinate keys to bounds arrays. The keys can be any
             values understood by :py:mod:`cf-xarray`.
         **bounds_kwargs : ArrayLike
             The keyword arguments form of ``bounds``.
@@ -157,23 +242,23 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
         kwargs = mapping_or_kwargs(
             parg=bounds, kwargs=bounds_kwargs, func_name='assign_bounds'
         )
-        for k, v in kwargs.items():
-            dim = resolve_dim_name(obj=obj, key=str(k))
-            name = resolve_bounds_name(dim)
-            obj = obj.cf.assign_coords({name: v})
-            obj[dim].attrs['bounds'] = name
+        for key, value in kwargs.items():
+            name = f'{resolve_variable_name(obj=obj, key=key)}_{OPTIONS["bounds_dim"]}'
+            obj = obj.assign_coords({name: value})
+            obj.cf[key].attrs['bounds'] = name
         return cast(T, obj)
 
-    def drop_bounds(self, *dims: str) -> T:
-        """Drop bounds coordinates for the specified dimensions.
+    def drop_bounds(self, *keys: str) -> T:
+        """Drop bounds coordinates for the specified coordinates.
 
-        Returns a new object with the specified bounds coordinates removed.
+        Returns a new object with the specified bounds coordinates and
+        associated metadata removed.
 
         Parameters
         ----------
-        *dims : str
-            Names of dimension coordinates to drop bounds for.
-            The names can be any values understood by :py:mod:`cf-xarray`.
+        *keys : str
+            Keys for coordinates to drop bounds for.
+            The keys can be any values understood by :py:mod:`cf-xarray`.
 
         Returns
         -------
@@ -189,42 +274,17 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
         """
         obj = self._obj.copy()
 
-        keys = set(dims)
-        if not keys:
-            # default to assigned bounds
-            keys = self.dims
+        names = set(resolve_variable_name(obj, key) for key in keys)
+        if not names:
+            # default to all assigned bounds
+            names = set(iter(self))
 
-        for key in keys:
-            if key not in self._obj.cf.bounds:
-                raise ValueError(f'No bounds exist for dimension: {key!r}')
-            dim = resolve_dim_name(obj=obj, key=key)
-            name = self[dim].name
-            obj = obj.drop_vars(name)
-            if 'bounds' in obj[dim].attrs:
-                del obj[dim].attrs['bounds']
-        return obj
-
-    def guess_bounds_axis(self, verbose: bool = False) -> T:
-        """Guesses bounds coordinates and adds appropriate attributes.
-
-        Parameters
-        ----------
-        verbose : bool, default False
-            Print extra info to screen.
-
-        Returns
-        -------
-        T
-            A new object with appropriate attributes added.
-        """
-        obj = self._obj.copy()
-        for k, v in obj.cf.bounds.items():
-            if k not in obj:
-                continue
-            if 'bounds' not in obj[k].attrs:
-                if verbose:
-                    print(f'I think {v[0]!r} is bounds for {k!r}.')
-                obj[k].attrs['bounds'] = v[0]
+        for name in names:
+            if 'bounds' in obj[name].attrs:
+                del obj[name].attrs['bounds']
+            if 'bounds' in obj.cf[name].encoding:
+                del obj[name].encoding['bounds']
+            obj = obj.drop_vars(self[name].name)  # type: ignore[arg-type]
         return obj
 
     def __repr__(self) -> str:
