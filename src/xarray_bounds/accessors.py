@@ -88,6 +88,18 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
         canonical = self._resolve_key(key)
         return self._data[canonical]
 
+    def __setitem__(self, key, value) -> None:
+        raise TypeError(
+            f'{self.__class__.__name__} object does not support item assignment. '
+            "You can use the 'assign_bounds' method to add bounds."
+        )
+
+    def __delitem__(self, key) -> None:
+        raise TypeError(
+            f'{self.__class__.__name__} object does not support item deletion. '
+            "You can use the 'drop_bounds' method to remove bounds."
+        )
+
     def __contains__(self, key: object) -> bool:
         """Return True if bounds exist for the specified key."""
         try:

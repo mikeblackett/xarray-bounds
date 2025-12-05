@@ -157,6 +157,16 @@ class TestDatasetBoundsAccessor:
         assert 'bounds' not in actual['lat'].attrs
         assert 'bounds' not in actual['lat'].encoding
 
+    def test_raises_for_item_assignment(self, ds: xr.Dataset):
+        """Should raise a TypeError on item assignment."""
+        with pt.raises(TypeError):
+            ds.bnds['lat'] = ds[f'lat_{BOUNDS_NAME}']
+
+    def test_raises_for_item_deletion(self, ds: xr.Dataset):
+        """Should raise a TypeError on item deletion."""
+        with pt.raises(TypeError):
+            del ds.bnds['lat']
+
 
 class TestDataArrayBoundsAccessor:
     """Tests for the DataArrayBoundsAccessor class."""
