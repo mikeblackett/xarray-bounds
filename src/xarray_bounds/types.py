@@ -1,11 +1,9 @@
-from collections.abc import Mapping, Sequence
 from enum import StrEnum
 from typing import Literal, TypeIs
 
 import pandas as pd
 
 __all__ = [
-    'AxisKey',
     'ClosedSide',
     'IntervalClosed',
     'IntervalLabel',
@@ -14,26 +12,13 @@ __all__ = [
     'is_date_offset',
     'is_interval_index',
     'is_multi_index',
-    'resolve_interval_closed',
-    'resolve_interval_label',
 ]
 
 type IntervalLabel = Literal['left', 'middle', 'right']
+"""Options for interval labels. Values are members of the LabelSide enum."""
 
 type IntervalClosed = Literal['left', 'right']
-
-type AxisKey = Literal['T', 'Z', 'Y', 'X']
-
-type AxisToBounds = Mapping[CFAxis, Sequence[str]]
-
-
-class CFAxis(StrEnum):
-    """Options for axis keys"""
-
-    T = 'T'
-    Z = 'Z'
-    Y = 'Y'
-    X = 'X'
+"""Options for interval closed. Values are members of the ClosedSide enum."""
 
 
 class LabelSide(StrEnum):
@@ -49,14 +34,6 @@ class ClosedSide(StrEnum):
 
     LEFT = 'left'
     RIGHT = 'right'
-
-
-def resolve_interval_label(label: IntervalLabel) -> LabelSide:
-    return LabelSide(label)
-
-
-def resolve_interval_closed(label: IntervalClosed) -> ClosedSide:
-    return ClosedSide(label)
 
 
 def is_datetime_index(index: object) -> TypeIs[pd.DatetimeIndex]:
