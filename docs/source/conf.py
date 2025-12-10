@@ -4,7 +4,7 @@ import os
 
 import xarray_bounds
 
-project = 'xarray-jsonschema'
+project = 'xarray-bounds'
 copyright = '2025, Mike Blackett'
 author = 'Mike Blackett'
 version = xarray_bounds.__version__
@@ -34,7 +34,7 @@ autodoc_typehints = 'none'
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
 
-source_suffix = ['.rst', '.md']
+source_suffix = ['rst', '.md']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 intersphinx_mapping = {
@@ -57,11 +57,22 @@ html_context = {
     'doc_path': 'doc',
 }
 html_theme_options = {
-    'github_url': 'https://github.com/mikeblackett/xarray-bounds',
-    'use_edit_page_button': False,
+    'repository_url': 'https://github.com/mikeblackett/xarray-bounds',
+    'use_repository_button': True,
     'header_links_before_dropdown': 8,
     'navbar_align': 'left',
     'footer_center': ['last-updated'],
 }
-
 templates_path = ['_templates']
+
+# MyST configuration
+myst_enable_extensions = [
+    'colon_fence',
+    'tasklist',
+    'substitution',
+]
+myst_substitutions = {
+    'project': project,
+    'version': version,
+    'release': release,
+}
