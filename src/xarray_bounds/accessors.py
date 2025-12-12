@@ -49,12 +49,12 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
         }
 
     def _resolve_key(self, alias: Hashable) -> Hashable:
-        """Resolve a canonical key in the bounds mapping.
+        """Resolve an alias to a canonical key in the bounds mapping.
 
         Parameters
         ----------
         alias : Hashable
-            An alias for the key to resolve.
+            An alias for a canonical key.
             Can be any value understood by :py:mod:`cf_xarray`.
 
         Returns
@@ -76,7 +76,7 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
         ----------
         key : str
             The name of a coordinate.
-            The name can be any alias understood by :py:mod:`cf_xarray`.
+            Can be any alias understood by :py:mod:`cf_xarray`.
 
         Returns
         -------
@@ -110,7 +110,7 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
         ----------
         key : Hashable
             The name of a coordinate.
-            The name can be any alias understood by :py:mod:`cf_xarray`.
+            Can be any alias understood by :py:mod:`cf_xarray`.
 
         Returns
         -------
@@ -257,7 +257,7 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
         ----------
         bounds : Mapping[str, ArrayLike], optional
             A mapping of coordinate names to bounds arrays.
-            The names can be any aliases understood by :py:mod:`cf_xarray`.
+            The names can be any alias understood by :py:mod:`cf_xarray`.
         **bounds_kwargs : ArrayLike
             The keyword arguments form of ``bounds``.
 
@@ -289,8 +289,8 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
         Parameters
         ----------
         *keys : str
-            Names of coordinates to drop bounds for.
-            The names can be any aliases understood by :py:mod:`cf_xarray`.
+            Names of coordinates whose bounds to drop.
+            The names can be any alias understood by :py:mod:`cf_xarray`.
 
         Returns
         -------

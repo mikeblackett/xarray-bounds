@@ -1,8 +1,3 @@
----
-kernelspec:
-  name: xarray-bounds
----
-
 # {{project}} documentation
 
 **Version:** {{version}}
@@ -14,10 +9,9 @@ boundary variables.
 :::{important}
 This project is under active development. Frequent and breaking changes are expected.
 
-Significant breaking changes are anticipated with {py:mod}`xarray`'s upcomming
-support for CF interval indexes.
-
-See <https://github.com/pydata/xarray/pull/10296> for more information.
+Significant breaking changes are anticipated with {py:mod}`xarray`'s upcoming
+support for CF interval indexes. See
+<https://github.com/pydata/xarray/pull/10296> for more information.
 :::
 
 :::{toctree}
@@ -26,7 +20,8 @@ See <https://github.com/pydata/xarray/pull/10296> for more information.
 :maxdepth: 1
 
 user_guide
-cookbook
+examples
+faq
 api
 :::
 
@@ -36,93 +31,74 @@ api
 - [Features](#features)
 - [Installation](#installation)
 - [Contributing](#contributing)
+- [Next steps](#next-steps)
 
 ## Overview
 
-Gridded datasets have dimension coordinates that represent points on a grid.
-These points lie somewhere within or upon the boundaries of grid cells. If the
-vertices of the cell boundaries are not described, the meaning of the coordinates is ambiguous.
+This package adds a `bnds` accessor to {py:class}`xarray.Dataset`. The
+`bnds` accessor recognizes bounds variables and collects them in a
+{py:class}`xarray.Coordinates`-like mapping. The mapping provides methods to
+infer, assign and drop bounds (see the [User Guide](user_guide)), with automatic CF
+attribute management. You can refer to variables by name or any alias supported
+by {py:mod}`cf_xarray`.
 
-The CF convention recommends adding "boundary variables" to delimit cell
-boundaries. A boundary variable is a coordinate that has one more
-dimension--the vertex dimension--than its associated coordinate. So a
-coordinate is a variable that describes a dimension and a boundary variable
-is a variable that describes a coordinate.
-  
-This extra dimension can be modelled with xarray's {py:class}`~xarray.Dataset`.
-But because the vertex dimension is not a dimension of the data variable(s),
-many routine operations like reduction, groupby, regridding etc drop the
-boundary variables. This means that boundary variables must be carefully maintained.
-  
 ## Features
 
-- **Bounds mapping**: access bounds by  
-- **Assign**: assign boundary variables with 
-- **Infer bounds**: automagically infer boundary variables from
-  indexed[^1] coordinates
-- **Attribute management**: perform boundary operations with automatic
-  CF attribute management
+- **Organize**: access all your {py:class}`~xarray.Dataset`'s bounds in a dict-like object
+- **Infer**: automagically infer bounds from indexed coordinates[^1]
+- **Attribute management**: manipulate bounds with automatic CF attribute
+  management
+- **CF alias support**: refer to variables using any alias understood by {py:mod}`cf_xarray`
+- **Bounds round-tripping**: convert {py:class}`pandas.Index` to bounds
+  `~xarray.DataArray` and back
+- **Flexible API**: manage bounds through the accessor interface or utilize the
+  core logic as standalone functions
 
 ## Installation
 
-You can install a local pre-release copy of `xarray_bounds` by cloning this
-repository:
+Install locally using an editable install (recommended for development):
 
 ```bash
-mkdir xarray-bounds && cd xarray-bounds
-git clone 'https://github.com/mikeblackett/xarray-bounds'
-uv pip install -e . 
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .[dev]
+```
+
+Alternatively, for a minimal install:
+
+```bash
+pip install -e .
 ```
 
 ## Quick start
 
+Example (infer bounds for a simple 1D coordinate):
+
 ```python
 import xarray as xr
 
-import xarray_bounds as xrb  # noqa F401
+ds = xr.Dataset(coords={
+  'y': ('y', [0, 1, 2])
+})
 
-y = xr.DataArray(
-    data=range(3),
-    dims='y',
-)
-ds = xr.Dataset(coords={'y': range(3)})
-ds
-```
-
-```text
-<xarray.DataArray 'y' (y: 3)> Size: 24B
-array([0, 1, 2])
-Coordinates:
-  * y        (y) int64 24B 0 1 2
-Attributes:
-    bounds:   y_bnds
-```
-
-```python
+# infer bounds for coordinate 'y' (labels at midpoint)
 ds2 = ds.bnds.infer_bounds('y', label='middle')
-print(ds2.coords['y'], ds2.bnds['y'], sep='\n\n')
+print(ds2.coords['y_bnds'])
 ```
 
-```text
-<xarray.DataArray 'y_bnds' (y: 3, bnds: 2)> Size: 48B
-array([[-0.5,  0.5],
-       [ 0.5,  1.5],
-       [ 1.5,  2.5]])
-Coordinates:
-  * y        (y) int64 24B 0 1 2
-    y_bnds   (y, bnds) float64 48B -0.5 0.5 0.5 1.5 1.5 2.5
-Dimensions without coordinates: bnds
-Attributes:
-    closed:   left
-```
+This will add a coordinate named `y_bnds` with shape `(y, 2)` and set the
+`bounds` attribute on the `y` coordinate.
+
+## Contributing
+
+Contributions are encouraged! Please feel free to submit a Pull Request.
 
 ## Next steps
 
 Check out the [User guide](user_guide.ipynb) for an in depth introduction and
 the [Cookbook](cookbook.ipynb) for examples.
 
-## Contributing
-
-Contributions are encouraged! Please feel free to submit a Pull Request.
+See the [FAQ](FAQ.md) for common questions about accessor semantics and
+timezone handling.
 
 [^1]: To infer bounds the index must be monotonic and regularly-spaced.
