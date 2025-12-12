@@ -6,6 +6,7 @@ functions in :py:mod:`xarray_bounds.core`.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Hashable
 from typing import assert_never
 
@@ -355,5 +356,5 @@ def _left_from_midpoint(
     left = (index - delta / 2).dropna()
     aligned = left.shift(-1, freq=offset).normalize()
     if not aligned.freq == offset:
-        print(Warning('could not align midpoints to the specified frequency.'))
+        warnings.warn('could not align midpoints to the specified frequency.')
     return pd.to_datetime(aligned.union([aligned[-1] + offset]))
