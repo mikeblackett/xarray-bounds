@@ -17,9 +17,7 @@ from xarray_bounds._helpers import OffsetAlias
 from xarray_bounds.types import (
     ClosedSide,
     LabelSide,
-    is_date_offset,
     is_datetime_index,
-    is_multi_index,
 )
 
 __all__ = [
@@ -63,7 +61,7 @@ def infer_interval(
             closed=closed,
             label=label,
             name=name,
-            normalize=True,
+            normalize=False,
         )
 
     return index_to_interval(
@@ -131,18 +129,17 @@ def datetime_to_interval(
         raise TypeError(
             f'expected a {pd.DatetimeIndex!r}, got {type(index)!r}'
         )
-    try:
-        if label == LabelSide.MIDDLE:
-            freq = infer_midpoint_freq(index, closed)
-        else:
-            freq = pd.infer_freq(index)
-        if freq is None:
-            raise ValueError
-    except ValueError as error:
-        raise ValueError('Could not infer a regular frequency.') from error
+
+    if label == LabelSide.MIDDLE:
+        freq = infer_midpoint_freq(index, closed)
+    else:
+        freq = pd.infer_freq(index)
+
+    if freq is None:
+        raise ValueError('index must have an inferrable frequency.')
 
     offset = pd.tseries.frequencies.to_offset(freq)
-    assert is_date_offset(offset)
+    assert isinstance(offset, pd.DateOffset)
 
     if index.tz is not None and offset.n == 1:
         raise ValueError(
@@ -150,9 +147,7 @@ def datetime_to_interval(
             'Consider converting "index" to UTC.'
         )
 
-    descending = index.is_monotonic_decreasing
-
-    alias = OffsetAlias.from_freq(freq)
+    alias = OffsetAlias.from_freq(offset)
     if label is None:
         label = LabelSide.RIGHT if alias.is_end_aligned else LabelSide.LEFT
 
@@ -175,7 +170,8 @@ def datetime_to_interval(
         left = left.normalize()
         right = right.normalize()
 
-    if descending:
+    if index.is_monotonic_decreasing:
+        # IntervalIndex requires left <= right
         left, right = right, left
         closed = (
             ClosedSide.RIGHT if closed == ClosedSide.LEFT else ClosedSide.LEFT
@@ -222,23 +218,20 @@ def index_to_interval(
     ValueError
         If the index is not uniformly spaced
     """
-    if is_multi_index(index):
-        raise ValueError('MultiIndex is not supported.')
+    if index.ndim != 1:
+        raise ValueError('only 1-dimensional indices are supported.')
 
-    if len(index) < 2:
+    if index.size < 2:
         raise ValueError(
-            f'Index must have at least two elements, got {len(index)}'
+            f'index must have at least two elements, got "{index.size}".'
         )
 
-    descending = index.is_monotonic_decreasing
-    if not index.is_monotonic_increasing and not descending:
-        raise ValueError('Index must be monotonic.')
+    if not (index.is_monotonic_increasing or index.is_monotonic_decreasing):
+        raise ValueError('index must be monotonic.')
 
     diffs = np.diff(index)
     if not np.allclose(diffs, diffs[0]):
-        raise ValueError(
-            'Index is not uniformly spaced; cannot infer consistent intervals.'
-        )
+        raise ValueError('index must be uniformly spaced.')
     step = diffs[0]
 
     match label:
@@ -253,7 +246,7 @@ def index_to_interval(
         case _:  # pragma: no cover
             assert_never(label)
 
-    if descending:
+    if index.is_monotonic_decreasing:
         breaks = breaks[::-1]
         closed = (
             ClosedSide.RIGHT if closed == ClosedSide.LEFT else ClosedSide.LEFT
@@ -265,7 +258,7 @@ def index_to_interval(
         name=name or index.name,
     )
 
-    if descending:
+    if index.is_monotonic_decreasing:
         return interval[::-1]
     return interval
 

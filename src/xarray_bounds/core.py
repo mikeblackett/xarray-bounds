@@ -61,10 +61,8 @@ def infer_bounds(
     """
     try:
         index = obj.to_index()
-    except ValueError:
-        raise ValueError(
-            'bounds inference is only supported for 1-dimensional coordinates.'
-        )
+    except ValueError as error:
+        raise ValueError('index must be 1-dimensional') from error
 
     obj = obj.copy()
 
@@ -183,11 +181,13 @@ def bounds_to_interval(obj: xr.DataArray) -> pd.IntervalIndex:
         A pandas interval index representing the bounds.
     """
     if obj.ndim != 2:
-        raise ValueError(f'bounds must be a 2D DataArray, got {obj.ndim}D.')
-
-    if obj.sizes.get(obj.dims[1], 0) != 2:
         raise ValueError(
-            f'second dimension of bounds must have size 2, got size {obj.sizes.get(obj.dims[1], 0)}.'
+            f'obj must be 2-dimensional, got object with {obj.ndim!r} dimensions.'
+        )
+
+    if (size := obj.sizes.get(obj.dims[1], 0)) != 2:
+        raise ValueError(
+            f'second dimension of obj must have size 2, got size {size}.'
         )
 
     closed = ClosedSide(obj.attrs.get('closed', 'left'))
