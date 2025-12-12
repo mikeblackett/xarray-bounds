@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from xarray_bounds.helpers import (
+from xarray_bounds._helpers import (
     validate_interval_closed,
     validate_interval_label,
 )

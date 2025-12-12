@@ -6,11 +6,11 @@ import numpy.typing as npt
 import xarray as xr
 from xarray.core import formatting
 
-from xarray_bounds.core import infer_bounds
-from xarray_bounds.helpers import (
+from xarray_bounds._helpers import (
     mapping_or_kwargs,
     resolve_variable_name,
 )
+from xarray_bounds.core import infer_bounds
 from xarray_bounds.options import OPTIONS
 from xarray_bounds.types import IntervalClosed, IntervalLabel
 

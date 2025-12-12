@@ -13,7 +13,7 @@ from typing import assert_never
 import numpy as np
 import pandas as pd
 
-from xarray_bounds.helpers import OffsetAlias
+from xarray_bounds._helpers import OffsetAlias
 from xarray_bounds.types import (
     ClosedSide,
     LabelSide,

@@ -6,7 +6,7 @@ import xarray_strategies as xrst
 from hypothesis import strategies as st
 
 import xarray_bounds as xrb
-from xarray_bounds.helpers import (
+from xarray_bounds._helpers import (
     OffsetAlias,
     mapping_or_kwargs,
     resolve_axis_name,

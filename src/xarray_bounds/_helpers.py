@@ -47,7 +47,10 @@ def validate_interval_closed(
     if closed is None and default is None:
         return ClosedSide.LEFT.value
     if closed is None:
-        return ClosedSide(default).value
+        try:
+            return ClosedSide(default).value
+        except ValueError:
+            return ClosedSide.LEFT.value
 
 
 def resolve_axis_name(obj: xr.Dataset | xr.DataArray, key: Hashable) -> str:
