@@ -24,6 +24,7 @@ extensions = [
     # 3rd party
     'myst_nb',
     'sphinxemoji.sphinxemoji',
+    'sphinx_copybutton',
 ]
 
 # AutoDoc configuration
@@ -67,10 +68,13 @@ templates_path = ['_templates']
 
 # MyST configuration
 myst_enable_extensions = [
+    'attrs_inline',
     'colon_fence',
-    'tasklist',
+    'deflist',
     'substitution',
+    'tasklist',
 ]
+myst_heading_anchors = 3
 myst_substitutions = {
     'project': project,
     'version': version,

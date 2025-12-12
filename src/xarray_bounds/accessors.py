@@ -31,14 +31,17 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
     def __init__(self, obj: T) -> None:
         """Initialize a new ``Bounds`` object.
 
-        A new bounds object is initialized every time a new xarray object is created.
+        This initializer makes a shallow copy of ``obj`` for performance
+        reasons. Public accessor methods (`infer_bounds`, `assign_bounds`,
+        `drop_bounds`) all explicitly create and return new copies and
+        therefore preserve the non-mutating API.
 
         Parameters
         ----------
         obj : Dataset | DataArray
             The xarray object to add the bounds accessor to.
         """
-        self._obj: T = obj.copy()
+        self._obj: T = obj.copy(deep=False)
         self._data = {
             key: self._obj.coords[value[0]]
             for key, value in self._obj.cf.bounds.items()
