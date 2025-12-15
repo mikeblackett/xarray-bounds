@@ -64,6 +64,11 @@ def infer_bounds(
     except ValueError as error:
         raise ValueError('index must be 1-dimensional') from error
 
+    if index.name == OPTIONS['bounds_dim']:
+        raise ValueError(
+            f'"obj.name" cannot be the same as the vertex dimension: {OPTIONS["bounds_dim"]}'
+        )
+
     obj = obj.copy()
 
     label = validate_interval_label(label=label, default=closed)
@@ -79,6 +84,7 @@ def infer_bounds(
 
     dim = index.name
     coord = obj.name or dim
+
     bounds = f'{coord}_{OPTIONS["bounds_dim"]}'
     obj.attrs['bounds'] = bounds
 

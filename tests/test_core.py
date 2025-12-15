@@ -99,12 +99,25 @@ class TestInferBounds:
         The coordinate name should match the original object's name,
         or the dimension name if the original object has no name.
         """
+        hp.assume(name != OPTIONS['bounds_dim'])
         da = xr.DataArray(data=index, name=name)
         bounds = infer_bounds(da)
         if name is None:
             assert bounds.coords[index.name].name == index.name
         else:
             assert bounds.coords[name].name == name
+
+    @hp.given(
+        index=hpd.range_indexes(
+            min_size=3, name=st.just(OPTIONS['bounds_dim'])
+        ),
+    )
+    def test_raises_error_if_obj_has_same_name_as_vertext_dim(
+        self, index: pd.Index
+    ):
+        da = xr.DataArray(data=index)
+        with pt.raises(ValueError):
+            infer_bounds(da)
 
     @hp.given(index=hpd.range_indexes(min_size=3))
     def test_assigns_cf_bounds_attribute(self, index: pd.Index):
