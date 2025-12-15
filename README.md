@@ -11,6 +11,10 @@ conversion utilities between bounds arrays and `pandas.Interval`s.
 - Direct support for `cf_xarray` variable **aliasing**
 - **Convert** `pandas.Index` to bounds `xarray.DataArray` and back
 
+## Documentation
+
+See the [docs](https://xarray-bounds.readthedocs.io/en/latest/).
+
 ## Installation
 
 Quick install (recommended, editable install):
@@ -26,5 +30,3 @@ Run tests:
 ```bash
 pytest
 ```
-
-See the docs in `docs/source` (user guide and API).
