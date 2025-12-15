@@ -2,7 +2,6 @@ from collections.abc import Hashable, Iterator, Mapping
 from typing import cast
 
 import cf_xarray  # noqa F401
-import numpy.typing as npt
 import xarray as xr
 from xarray.core import formatting
 
@@ -245,8 +244,8 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
 
     def assign_bounds(
         self,
-        bounds: Mapping[str, npt.ArrayLike] | None = None,
-        **bounds_kwargs: npt.ArrayLike,
+        bounds: Mapping[str, xr.DataArray] | None = None,
+        **bounds_kwargs: xr.DataArray,
     ) -> T:
         """Assign boundary variables to this object.
 
@@ -255,10 +254,10 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
 
         Parameters
         ----------
-        bounds : Mapping[str, ArrayLike], optional
+        bounds : Mapping[str, DataArray], optional
             A mapping of coordinate names to bounds arrays.
-            The names can be any alias understood by :py:mod:`cf_xarray`.
-        **bounds_kwargs : ArrayLike
+            The keys can be any alias understood by :py:mod:`cf_xarray`.
+        **bounds_kwargs : DataArray
             The keyword arguments form of ``bounds``.
 
         Returns
