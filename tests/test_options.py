@@ -24,12 +24,12 @@ def test_set_options_context_manager(value: str):
 @hp.given(value=st.text(min_size=1, max_size=10))
 def test_set_bounds_dim(value: str):
     """Test that set_options works as a context manager."""
+    ds = xr.tutorial.open_dataset('air_temperature')
+    hp.assume(value not in ds.dims)
     with xarray_bounds.set_options(bounds_dim=value):
-        ds = xr.tutorial.open_dataset('air_temperature').bnds.infer_bounds(
-            'time'
-        )
-        assert value in ds.bnds['time'].dims
-        assert ds.time.attrs['bounds'] == f'time_{value}'
+        ds2 = ds.bnds.infer_bounds('time')
+        assert value in ds2.bnds['time'].dims
+        assert ds2.time.attrs['bounds'] == f'time_{value}'
 
 
 @hp.given(
