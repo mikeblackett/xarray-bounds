@@ -1,5 +1,5 @@
 from enum import StrEnum
-from typing import Literal, TypeIs
+from typing import Literal, TypeAlias, TypeIs
 
 import pandas as pd
 
@@ -14,10 +14,10 @@ __all__ = [
     'is_multi_index',
 ]
 
-type IntervalLabel = Literal['left', 'middle', 'right']
+IntervalLabel: TypeAlias = Literal['left', 'middle', 'right']
 """Options for interval labels. Values are members of the LabelSide enum."""
 
-type IntervalClosed = Literal['left', 'right']
+IntervalClosed: TypeAlias = Literal['left', 'right']
 """Options for interval closed. Values are members of the ClosedSide enum."""
 
 

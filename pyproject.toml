@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [
     { name = "Mike Blackett", email = "27811528+mikeblackett@users.noreply.github.com" },
 ]
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 dependencies = [
     "cf-xarray>=0.10.9",
     "numpy>=2.3.3",

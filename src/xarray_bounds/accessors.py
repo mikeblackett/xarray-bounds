@@ -1,9 +1,10 @@
 from collections.abc import Hashable, Iterator, Mapping
-from typing import cast
+from typing import Generic, cast
 
 import cf_xarray  # noqa F401
 import xarray as xr
 from xarray.core import formatting
+from xarray.core.types import T_Xarray
 
 from xarray_bounds._helpers import (
     mapping_or_kwargs,
@@ -19,15 +20,13 @@ __all__ = ['DataArrayBoundsAccessor', 'DatasetBoundsAccessor']
 BOUNDS_ACCESSOR_NAME = 'bnds'
 
 
-class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
-    Mapping[Hashable, xr.DataArray]
-):
+class BoundsAccessor(Generic[T_Xarray], Mapping[Hashable, xr.DataArray]):
     """Xarray accessor for CF boundary variables.
 
     This accessor returns a mapping of variable names to boundary variables.
     """
 
-    def __init__(self, obj: T) -> None:
+    def __init__(self, obj: T_Xarray) -> None:
         """Initialize a new ``Bounds`` object.
 
         This initializer makes a shallow copy of ``obj`` for performance
@@ -40,7 +39,7 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
         obj : Dataset | DataArray
             The xarray object to add the bounds accessor to.
         """
-        self._obj: T = obj.copy(deep=False)
+        self._obj: T_Xarray = obj.copy(deep=False)
         self._data = {
             key: self._obj.coords[value[0]]
             for key, value in self._obj.cf.bounds.items()
@@ -196,7 +195,7 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
         *keys: str,
         closed: IntervalClosed | None = None,
         label: IntervalLabel | None = None,
-    ) -> T:
+    ) -> T_Xarray:
         """Infer bounds for the specified coordinates and assign them to this object.
 
         Returns a new object with all the original data in addition to the new bounds.
@@ -246,7 +245,7 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
         self,
         bounds: Mapping[str, xr.DataArray] | None = None,
         **bounds_kwargs: xr.DataArray,
-    ) -> T:
+    ) -> T_Xarray:
         """Assign boundary variables to this object.
 
         Returns a new object with all the original data in addition to the
@@ -279,9 +278,9 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
             name = f'{var}_{OPTIONS["bounds_dim"]}'
             obj = obj.assign_coords({name: value})
             obj[var].attrs['bounds'] = name
-        return cast(T, obj)
+        return cast(T_Xarray, obj)
 
-    def drop_bounds(self, *keys: str) -> T:
+    def drop_bounds(self, *keys: str) -> T_Xarray:
         """Drop bounds variables for the specified coordinates.
 
         Returns a new object with the specified bounds variables and associated metadata removed.

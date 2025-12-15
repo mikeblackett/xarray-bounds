@@ -7,7 +7,7 @@ for public use.
 from __future__ import annotations
 
 from collections.abc import Hashable, Mapping
-from typing import Any, Literal, cast
+from typing import Any, Literal, TypeVar, cast
 
 import pandas as pd
 import xarray as xr
@@ -251,7 +251,10 @@ def _parse_freq(
     )
 
 
-def mapping_or_kwargs[T](
+T = TypeVar('T')
+
+
+def mapping_or_kwargs(
     parg: Mapping[Any, T] | None,
     kwargs: Mapping[str, T],
     func_name: str,
