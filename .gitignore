@@ -15,5 +15,8 @@ wheels/
 
 /notebooks
 
+# docs
+_build/
+
 coverage.xml
 .coverage
