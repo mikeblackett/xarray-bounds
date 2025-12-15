@@ -113,7 +113,7 @@ class TestDatasetBoundsAccessor:
         actual = ds_no_bounds.bnds.infer_bounds()
         assert all(d in actual.bnds for d in missing)
 
-    @hp.given(dim=st.sampled_from(['time', 'T']))
+    @hp.given(dim=st.sampled_from(['time', 'T', 'latitude', 'Y', 'lat']))
     def test_assign_bounds(
         self, ds: xr.Dataset, ds_no_bounds: xr.Dataset, dim: str
     ):
@@ -122,6 +122,15 @@ class TestDatasetBoundsAccessor:
         expected = ds.bnds[dim]
         actual = ds_new.bnds[dim]
         np.testing.assert_array_equal(expected, actual)
+
+    @hp.given(dim=st.sampled_from(['time', 'T', 'latitude', 'Y', 'lat']))
+    def test_assign_bounds_assigns_attribute(
+        self, ds: xr.Dataset, ds_no_bounds: xr.Dataset, dim: str
+    ):
+        """Should assign bounds attribute to coordinate."""
+        ds_new = ds_no_bounds.bnds.assign_bounds(**{dim: ds.bnds[dim]})
+        print(ds_new.cf[dim].attrs)
+        assert ds_new.cf[dim].attrs['bounds'] == ds.bnds[dim].name
 
     @hp.given(dim=st.sampled_from(['time', 'T']))
     def test_drop_bounds(self, ds: xr.Dataset, dim: str):

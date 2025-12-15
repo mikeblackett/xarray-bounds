@@ -275,9 +275,10 @@ class BoundsAccessor[T: (xr.Dataset, xr.DataArray)](
             parg=bounds, kwargs=bounds_kwargs, func_name='assign_bounds'
         )
         for key, value in kwargs.items():
-            name = f'{resolve_variable_name(obj=obj, key=key)}_{OPTIONS["bounds_dim"]}'
+            var = resolve_variable_name(obj=obj, key=key)
+            name = f'{var}_{OPTIONS["bounds_dim"]}'
             obj = obj.assign_coords({name: value})
-            obj.cf[key].attrs['bounds'] = name
+            obj[var].attrs['bounds'] = name
         return cast(T, obj)
 
     def drop_bounds(self, *keys: str) -> T:
