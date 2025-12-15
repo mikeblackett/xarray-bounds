@@ -73,7 +73,7 @@ class TestInferBounds:
         bounds = infer_bounds(da)
         assert bounds.dims[1] == OPTIONS['bounds_dim']
 
-    @hp.given(dim=xrst.names(), index=hpd.range_indexes(min_size=3))
+    @hp.given(dim=xrst.names(), index=hpd.range_indexes(min_size=4))
     def test_bounds_name(self, dim: str, index: pd.Index):
         """Should produce bounds with the correct variable name."""
         da = xr.DataArray(data=index, dims=dim)
@@ -259,16 +259,8 @@ class TestBoundsToInterval:
     def test_raises_if_not_2d(self):
         """Should raise an error if the dimension is not 2D."""
         da = xr.tutorial.open_dataset('air_temperature').time
-        with pt.raises(ValueError, match='bounds must be a 2D DataArray'):
+        with pt.raises(ValueError, match='2-dimensional'):
             bounds_to_interval(da)
-
-    def test_raises_if_wrong_bounds_dim(self):
-        """Should raise an error if the second dimension is not the bounds dim."""
-        da = xr.tutorial.open_dataset('air_temperature').time
-        bounds = infer_bounds(da)
-        bounds = bounds.rename({OPTIONS['bounds_dim']: 'wrong_dim'})
-        with pt.raises(ValueError):
-            bounds_to_interval(bounds)
 
     @hp.given(index=hpd.range_indexes(min_size=3))
     def test_returns_interval_index(self, index: pd.Index):

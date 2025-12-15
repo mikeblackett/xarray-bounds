@@ -129,7 +129,6 @@ class TestDatasetBoundsAccessor:
     ):
         """Should assign bounds attribute to coordinate."""
         ds_new = ds_no_bounds.bnds.assign_bounds(**{dim: ds.bnds[dim]})
-        print(ds_new.cf[dim].attrs)
         assert ds_new.cf[dim].attrs['bounds'] == ds.bnds[dim].name
 
     @hp.given(dim=st.sampled_from(['time', 'T']))
