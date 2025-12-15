@@ -7,11 +7,11 @@ for public use.
 from __future__ import annotations
 
 from collections.abc import Hashable, Mapping
+from dataclasses import dataclass
 from typing import Any, Literal, TypeVar, cast
 
 import pandas as pd
 import xarray as xr
-from attr import dataclass
 
 from xarray_bounds.types import (
     ClosedSide,
