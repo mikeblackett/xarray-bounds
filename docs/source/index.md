@@ -20,8 +20,6 @@ support for CF interval indexes. See
 :maxdepth: 1
 
 user_guide
-examples
-faq
 api
 :::
 
@@ -35,24 +33,14 @@ api
 
 ## Overview
 
-This package adds a `bnds` accessor to {py:class}`xarray.Dataset`. The
-`bnds` accessor recognizes bounds variables and collects them in a
-{py:class}`xarray.Coordinates`-like mapping. The mapping provides methods to
-infer, assign and drop bounds (see the [User Guide](user_guide)), with automatic CF
-attribute management. You can refer to variables by name or any alias supported
-by {py:mod}`cf_xarray`.
+This package adds the `bnds` accessor to {py:class}`xarray.Dataset`. The `bnds` accessor recognizes bounds variables, collects them in a {py:attr}`~xarray.Dataset.coords`-like mapping and provides some useful methods. You can infer, assign and drop bounds -- all with automatic CF attribute management. Check out the [User Guide](user_guide) for a general introduction.
 
 ## Features
 
-- **Organize**: access all your {py:class}`~xarray.Dataset`'s bounds in a dict-like object
-- **Infer**: automagically infer bounds from indexed coordinates[^1]
-- **Attribute management**: manipulate bounds with automatic CF attribute
-  management
-- **CF alias support**: refer to variables using any alias understood by {py:mod}`cf_xarray`
-- **Bounds round-tripping**: convert {py:class}`pandas.Index` to bounds
-  `~xarray.DataArray` and back
-- **Flexible API**: manage bounds through the accessor interface or utilize the
-  core logic as standalone functions
+- **Organize** your {py:class}`~xarray.Dataset`'s bounds in a coords-like object
+- **Infer**, **assign** and **drop** bounds with automatic CF **attribute management**
+- Direct support for {py:mod}`cf_xarray` variable **aliasing**
+- **Convert** {py:class}`pandas.Index` to bounds {py:class}`~xarray.DataArray` and back
 
 ## Installation
 
@@ -83,7 +71,7 @@ ds = xr.Dataset(coords={
 
 # infer bounds for coordinate 'y' (labels at midpoint)
 ds2 = ds.bnds.infer_bounds('y', label='middle')
-print(ds2.coords['y_bnds'])
+print(ds2.bnds['y'])
 ```
 
 This will add a coordinate named `y_bnds` with shape `(y, 2)` and set the
@@ -95,10 +83,4 @@ Contributions are encouraged! Please feel free to submit a Pull Request.
 
 ## Next steps
 
-Check out the [User guide](user_guide.ipynb) for an in depth introduction and
-the [Cookbook](cookbook.ipynb) for examples.
-
-See the [FAQ](FAQ.md) for common questions about accessor semantics and
-timezone handling.
-
-[^1]: To infer bounds the index must be monotonic and regularly-spaced.
+Check out the [User guide](user_guide.ipynb).
