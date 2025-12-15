@@ -192,6 +192,11 @@ class TestInferMidpointFreq:
         """Should raise a ValueError if the index is not monotonic."""
         dtype = data.draw(index_dtypes(include=['datetime']))
         index = data.draw(hpd.indexes(dtype=dtype, min_size=4))
+        hp.assume(
+            not (
+                index.is_monotonic_decreasing or index.is_monotonic_increasing
+            )
+        )
         with pt.raises(ValueError, match='monotonic'):
             infer_midpoint_freq(index)  # type: ignore
 
