@@ -7,8 +7,8 @@ import hypothesis.strategies as st
 import numpy as np
 import pandas as pd
 import pytest as pt
-import xarray_strategies as xrst
 
+from tests.constants import FREQ, FREQ_END, FREQ_START
 from xarray_bounds.types import ClosedSide, LabelSide
 from xarray_bounds.utilities import (
     datetime_to_interval,
@@ -94,62 +94,77 @@ class TestDatetimeToInterval:
         with pt.raises(ValueError, match='DST-aware'):
             datetime_to_interval(index)
 
-    @hp.given(data=st.data())
-    def test_converts_regular_indices(self, data: st.DataObject) -> None:
-        """Should convert datetime indices to interval indices."""
-        closed = data.draw(st.sampled_from(ClosedSide))
-        label = data.draw(st.sampled_from(['left', 'right']))
-        if label == LabelSide.LEFT:
-            categories = ['MS', 'QS', 'YS']
-        elif label == LabelSide.RIGHT:
-            categories = ['W', 'ME', 'QE', 'YE']
-        # Limit max_n to 3 to avoid creating out-of-bounds indices
-        freq = data.draw(
-            xrst.frequencies.offset_aliases(categories=categories, max_n=3)  # type: ignore
-        )
-        start = data.draw(
-            xrst.scalars.timestamps(max_value=pd.Timestamp('2020'))
-        )
-        periods = data.draw(st.integers(min_value=5, max_value=10))
+    @hp.given(
+        label=st.sampled_from(['left', 'right']),
+        closed=st.sampled_from(ClosedSide),
+        start=st.integers(min_value=1890, max_value=2050),
+        periods=st.integers(min_value=3, max_value=10),
+        freq=st.sampled_from(FREQ),
+    )
+    def test_converts_regular_indices(
+        self,
+        start: int,
+        periods: int,
+        freq: str,
+        closed: ClosedSide,
+        label: LabelSide,
+    ) -> None:
+        """Should convert datetime indices with regular frequency to interval indices."""
         expected = pd.interval_range(
-            start=start,
+            start=pd.Timestamp(str(start)),
             periods=periods,
             freq=freq,
-            closed=str(closed),  # type: ignore[arg-type]
+            closed=closed.value,
         )
-        index = expected.left if label == LabelSide.LEFT else expected.right
-        assert isinstance(index, pd.DatetimeIndex)
+        index = getattr(expected, label)
+        actual = datetime_to_interval(index=index, label=label, closed=closed)
+        np.testing.assert_array_equal(actual=actual, desired=expected)
+
+    @hp.given(
+        start=st.integers(min_value=1890, max_value=2050),
+        periods=st.integers(min_value=4, max_value=10),
+        freq=st.sampled_from(FREQ_START),
+    )
+    def test_converts_start_aligned_midpoint_indices(
+        self,
+        start: int,
+        periods: int,
+        freq: str,
+    ) -> None:
+        """Should convert datetime indices with mid-point frequency to interval indices."""
+        closed = ClosedSide('left')
+        expected = pd.interval_range(
+            start=pd.Timestamp(str(start)),
+            periods=periods,
+            freq=freq,
+            closed=closed.value,
+        )
+        index = expected.mid
         actual = datetime_to_interval(
-            index=index, label=LabelSide(label), closed=closed
+            index=index, label=LabelSide.MIDDLE, closed=closed
         )
         np.testing.assert_array_equal(actual=actual, desired=expected)
 
-    @hp.given(data=st.data())
-    def test_converts_midpoint_indices(self, data: st.DataObject) -> None:
-        """Should convert midpoint datetime indices to interval indices."""
-        closed = data.draw(st.sampled_from(ClosedSide))
-        if closed == ClosedSide.LEFT:
-            categories = ['MS', 'QS', 'YS']
-        elif closed == ClosedSide.RIGHT:
-            categories = ['W', 'ME', 'QE', 'YE']
-        # Limit max_n to 3 to avoid creating out-of-bounds indices
-        freq = data.draw(
-            xrst.frequencies.offset_aliases(categories=categories, max_n=3)  # type: ignore
-        )
-        start = data.draw(
-            xrst.scalars.timestamps(
-                max_value=pd.Timestamp('2020'), normalize=True
-            )
-        )
-        periods = data.draw(st.integers(min_value=5, max_value=10))
+    @hp.given(
+        start=st.integers(min_value=1890, max_value=2050),
+        periods=st.integers(min_value=4, max_value=10),
+        freq=st.sampled_from(FREQ_END),
+    )
+    def test_converts_end_aligned_midpoint_indices(
+        self,
+        start: int,
+        periods: int,
+        freq: str,
+    ) -> None:
+        """Should convert datetime indices with mid-point frequency to interval indices."""
+        closed = ClosedSide('right')
         expected = pd.interval_range(
-            start=start,
+            start=pd.Timestamp(str(start)),
             periods=periods,
             freq=freq,
-            closed=str(closed),  # type: ignore[arg-type]
+            closed=closed.value,
         )
         index = expected.mid
-        assert isinstance(index, pd.DatetimeIndex)
         actual = datetime_to_interval(
             index=index, label=LabelSide.MIDDLE, closed=closed
         )
@@ -214,22 +229,13 @@ class TestInferMidpointFreq:
     @hp.given(data=st.data())
     def test_infers_correct_freq(self, data: st.DataObject):
         """Should infer the frequency of a datetime index of regular midpoints"""
-        closed = data.draw(st.sampled_from(['left', 'right']))
-        exclude_categories = (
-            ['W', 'ME', 'QE', 'YE'] if closed == 'left' else ['MS', 'QS', 'YS']
-        )
-        freqs = xrst.frequencies.offset_aliases(
-            min_n=1,
-            max_n=3,
-            exclude_categories=exclude_categories,  # type: ignore
-        )
-        index = data.draw(
-            xrst.indexes.datetime_indexes(
-                freqs=freqs,
-                min_size=5,
-                normalize=False,
-            )
-        )
+        start = data.draw(st.integers(min_value=1890, max_value=2050))
+        periods = data.draw(st.integers(min_value=5, max_value=10))
+        closed = data.draw(st.sampled_from(ClosedSide))
+        freqs = FREQ_START if closed == ClosedSide.LEFT else FREQ_END
+        freq = data.draw(st.sampled_from(freqs))
+
+        index = pd.date_range(start=str(start), periods=periods, freq=freq)
         interval = pd.IntervalIndex.from_breaks(index)
         midpoint = pd.to_datetime(interval.mid)
 

@@ -2,10 +2,10 @@ import hypothesis as hp
 import pandas as pd
 import pytest as pt
 import xarray as xr
-import xarray_strategies as xrst
 from hypothesis import strategies as st
 
 import xarray_bounds as xrb
+from tests.constants import FREQ
 from xarray_bounds._helpers import (
     OffsetAlias,
     mapping_or_kwargs,
@@ -244,7 +244,7 @@ class TestResolveVariableName:
 
 
 class TestOffsetAlias:
-    @hp.given(freq=xrst.frequencies.offset_aliases())
+    @hp.given(freq=st.sampled_from(FREQ))
     def test_from_freq_with_freq_string(self, freq: str):
         """Should return an OffsetAlias object from a frequency string."""
         # Normalize `freq` using pandas to_offset to handle equivalent frequency strings
@@ -254,7 +254,7 @@ class TestOffsetAlias:
         assert isinstance(offset_alias, OffsetAlias)
         assert offset_alias.freqstr == date_offset.freqstr
 
-    @hp.given(freq=xrst.frequencies.offset_aliases())
+    @hp.given(freq=st.sampled_from(FREQ))
     def test_from_freq_with_date_offset(self, freq: str):
         """Should return an OffsetAlias object from a pd.DateOffset object."""
         date_offset = pd.tseries.frequencies.to_offset(freq)
@@ -262,7 +262,7 @@ class TestOffsetAlias:
         assert isinstance(offset_alias, OffsetAlias)
         assert offset_alias.freqstr == date_offset.freqstr
 
-    @hp.given(freq=xrst.frequencies.offset_aliases())
+    @hp.given(freq=st.sampled_from(FREQ))
     def test_to_offset_with_freq_string(self, freq: str):
         offset_alias = OffsetAlias.from_freq(freq)
         expected = pd.tseries.frequencies.to_offset(freq)
@@ -270,7 +270,7 @@ class TestOffsetAlias:
 
         assert expected == actual
 
-    @hp.given(freq=xrst.frequencies.offset_aliases())
+    @hp.given(freq=st.sampled_from(FREQ))
     def test_to_offset_with_date_offset(self, freq: str):
         expected = pd.tseries.frequencies.to_offset(freq)
         offset_alias = OffsetAlias.from_freq(expected)
@@ -278,21 +278,22 @@ class TestOffsetAlias:
 
         assert expected == actual
 
-    @hp.given(
-        freq_start=xrst.frequencies.offset_aliases(
-            categories=['D', 'MS', 'QS', 'YS']
-        ),
-        freq_end=xrst.frequencies.offset_aliases(
-            categories=['W', 'ME', 'QE', 'YE']
-        ),
+    @pt.mark.parametrize(
+        'freq, expected',
+        [
+            ('MS', False),
+            ('QE', True),
+            ('YS-FEB', False),
+            ('QE-DEC', True),
+            ('W', True),
+            ('W-TUE', True),
+        ],
     )
-    def test_is_end_aligned(self, freq_start: str, freq_end: str):
+    def test_is_end_aligned(self, freq: str, expected: bool):
         """Should correctly identify end-aligned frequencies."""
-        offset_start = OffsetAlias.from_freq(freq_start)
-        offset_end = OffsetAlias.from_freq(freq_end)
+        offset = OffsetAlias.from_freq(freq)
 
-        assert offset_start.is_end_aligned is False
-        assert offset_end.is_end_aligned is True
+        assert offset.is_end_aligned is expected
 
 
 class TestMappingOrKwargs:

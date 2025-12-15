@@ -12,7 +12,6 @@ dependencies = [
     "numpy>=2.3.3",
     "pandas>=2.3.2",
     "xarray>=2025.9.0",
-    "xarray-strategies",
 ]
 
 [dependency-groups]
@@ -53,6 +52,3 @@ source = ["livecov"]
 [tool.pytest.ini_options]
 addopts = "--cov=xarray_bounds --cov-report=xml --cov-report=term"
 testpaths = ["tests"]
-
-[tool.uv.sources]
-xarray-strategies = { path = "../xarray-strategies" }
