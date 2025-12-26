@@ -44,19 +44,19 @@ This package adds the `bnds` accessor to {py:class}`xarray.Dataset`. The `bnds` 
 
 ## Installation
 
-Install locally using an editable install (recommended for development):
+`xarray-bounds` is still in development.
+
+You can install it from source:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .[dev]
+pip install git+https://github.com/mikeblackett/xarray-bounds
 ```
 
-Alternatively, for a minimal install:
+Or for development, using [uv](https://docs.astral.sh/uv/):
 
 ```bash
-pip install -e .
-```
+git clone https://github.com/mikeblackett/xarray-bounds
+uv sync --dev
 
 ## Quick start
 
