@@ -23,7 +23,6 @@ extensions = [
     'sphinx.ext.napoleon',
     # 3rd party
     'myst_nb',
-    'sphinxemoji.sphinxemoji',
     'sphinx_copybutton',
 ]
 
@@ -49,20 +48,13 @@ intersphinx_mapping = {
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 html_baseurl = os.environ.get('READTHEDOCS_CANONICAL_URL', '/')
-html_theme = 'sphinx_book_theme'
+html_theme = 'sphinx_rtd_theme'
 html_title = 'xarray-bounds'
 html_context = {
     'github_user': 'mikeblackett',
     'github_repo': 'xarray-bounds',
     'github_version': 'main',
     'doc_path': 'doc',
-}
-html_theme_options = {
-    'repository_url': 'https://github.com/mikeblackett/xarray-bounds',
-    'use_repository_button': True,
-    'header_links_before_dropdown': 8,
-    'navbar_align': 'left',
-    'footer_center': ['last-updated'],
 }
 templates_path = ['_templates']
 
