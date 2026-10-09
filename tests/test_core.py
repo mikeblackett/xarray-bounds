@@ -25,8 +25,6 @@ from xarray_bounds.types import (
 
 class TestInferBounds:
     def test_raises_if_object_not_1d(self):
-        """Should raise an error if the object is not 1D."""
-
         da = xr.tutorial.open_dataset("air_temperature").air
         with pt.raises(
             ValueError,
@@ -36,12 +34,9 @@ class TestInferBounds:
 
     @hp.given(index=hpd.range_indexes(min_size=3))
     def test_returns_array_with_shape_n_2(self, index: pd.Index):
-        """Should return an array with shape (n, 2).
-
-        CF Conventions 7.1.1:
-        "For a one-dimensional coordinate variable of size N, the boundary
-        variable is an array of shape (N,2)."
-        """
+        # CF Conventions 7.1.1:
+        # "For a one-dimensional coordinate variable of size N, the boundary
+        # variable is an array of shape (N,2)."
         da = xr.DataArray(data=index, dims="dim")
         bounds = infer_bounds(da)
         n = len(da)
@@ -49,13 +44,10 @@ class TestInferBounds:
 
     @hp.given(index=hpd.range_indexes(min_size=3))
     def test_returns_cf_compliant_bounds(self, index: pd.Index):
-        """Should return bounds that comply with CF conventions.
-
-        CF Conventions 7.1.1:
-        "The bounds for cell i are the elements B(i,0) and B(i,1) of the boundary variable B.
-        Element C(i) of the coordinate variable C should lie between the boundaries of the cell, or upon one of them
-        i.e. B(i,0) - C(i) and B(i,1) - C(i) should not have the same sign,"
-        """
+        # CF Conventions 7.1.1:
+        # "The bounds for cell i are the elements B(i,0) and B(i,1) of the boundary variable B.
+        # Element C(i) of the coordinate variable C should lie between the boundaries of the cell, or upon one of them
+        # i.e. B(i,0) - C(i) and B(i,1) - C(i) should not have the same sign,"
         da = xr.DataArray(data=index, dims="dim")
         bounds = infer_bounds(da)
         for i in range(len(da)):
@@ -65,28 +57,24 @@ class TestInferBounds:
 
     @hp.given(index=hpd.range_indexes(min_size=3))
     def test_returns_array_with_attrs(self, index: pd.Index):
-        """Should return an array with 'closed' and 'label' attributes."""
         da = xr.DataArray(data=index, dims="dim")
         bounds = infer_bounds(da)
         assert "closed" in bounds.attrs
 
     @hp.given(index=hpd.range_indexes(min_size=3))
     def test_bounds_dim(self, index: pd.Index):
-        """Should produce bounds with the correct second dimension."""
         da = xr.DataArray(data=index)
         bounds = infer_bounds(da)
         assert bounds.dims[1] == OPTIONS["bounds_dim"]
 
     @hp.given(dim=xrst.names(), index=hpd.range_indexes(min_size=4))
     def test_bounds_name(self, dim: str, index: pd.Index):
-        """Should produce bounds with the correct variable name."""
         da = xr.DataArray(data=index, dims=dim)
         bounds = infer_bounds(da)
         assert bounds.name == f"{dim}_{OPTIONS['bounds_dim']}"
 
     @hp.given(index=hpd.range_indexes(min_size=3))
     def test_original_object_is_assigned_as_coordinate(self, index: pd.Index):
-        """Should keep the original object as the coordinate of the bounds."""
         da = xr.DataArray(data=index, dims="time")
         bounds = infer_bounds(da)
         coord = bounds.coords["time"]
@@ -98,11 +86,8 @@ class TestInferBounds:
         name=st.one_of(xrst.names(), st.none()),
     )
     def test_coordinate_name(self, index: pd.Index, name: str | None):
-        """Should produce bounds with the correct coordinate name.
-
-        The coordinate name should match the original object's name,
-        or the dimension name if the original object has no name.
-        """
+        # The coordinate name should match the original object's name,
+        # or the dimension name if the original object has no name.
         hp.assume(name != OPTIONS["bounds_dim"])
         da = xr.DataArray(data=index, name=name)
         bounds = infer_bounds(da)
@@ -125,7 +110,6 @@ class TestInferBounds:
 
     @hp.given(index=hpd.range_indexes(min_size=3))
     def test_assigns_cf_bounds_attribute(self, index: pd.Index):
-        """Should assign the bounds name to the coordinate's attributes."""
         da = xr.DataArray(data=index, dims="time")
         bounds = infer_bounds(da)
         coord = bounds.coords["time"]
@@ -137,19 +121,16 @@ class TestIntervalToBounds:
     def test_raises_if_invalid_closed_attribute(
         self, closed: Literal["both", "neither"]
     ):
-        """Should raise an error if the object is not 2D."""
         interval = pd.interval_range(0, 10, periods=5, closed=closed)
         with pt.raises(ValueError):
             interval_to_bounds(interval)
 
     def test_raises_if_no_dim_and_no_name(self):
-        """Should raise an error if no dim is provided and interval has no name."""
         interval = pd.interval_range(0, 10, periods=5)
         with pt.raises(ValueError):
             interval_to_bounds(interval)
 
     def test_raises_dimension_name_conflict(self):
-        """Should raise an error if the axis has the same dimension name as the bounds dimension"""
         bounds_dim_name = OPTIONS["bounds_dim"]
         interval = pd.interval_range(
             0, 10, periods=5, closed="right", name=bounds_dim_name
@@ -158,7 +139,6 @@ class TestIntervalToBounds:
             interval_to_bounds(interval)
 
     def test_returns_data_array_with_correct_shape(self):
-        """Should return an xarray DataArray."""
         interval = pd.interval_range(
             0, 10, periods=5, closed="left", name="interval"
         )
@@ -166,7 +146,6 @@ class TestIntervalToBounds:
         assert bounds.shape == (5, 2)
 
     def test_returns_data_array_with_correct_dims(self):
-        """Should return an xarray DataArray with correct dimensions."""
         interval = pd.interval_range(
             0, 10, periods=5, closed="right", name="interval"
         )
@@ -184,7 +163,6 @@ class TestIntervalToBounds:
     def test_returns_data_array_with_correct_coordinate_name(
         self, index_name, dim, name, expected
     ):
-        """Should handle naming of axis coordinate correctly."""
         interval = pd.interval_range(
             0, 10, periods=5, closed="right", name=index_name
         )
@@ -203,7 +181,6 @@ class TestIntervalToBounds:
     def test_returns_data_array_with_correct_dimension_name(
         self, index_name, dim, name, expected
     ):
-        """Should handle naming of axis coordinate correctly."""
         interval = pd.interval_range(
             0, 10, periods=5, closed="right", name=index_name
         )
@@ -222,7 +199,6 @@ class TestIntervalToBounds:
     def test_returns_data_array_with_correct_bounds_name(
         self, index_name, dim, name, expected
     ):
-        """Should handle naming of axis coordinate correctly."""
         with set_options(bounds_dim="bnds"):
             interval = pd.interval_range(
                 0, 10, periods=5, closed="right", name=index_name
@@ -233,7 +209,6 @@ class TestIntervalToBounds:
 
     @hp.given(closed=st.sampled_from(ClosedSide))
     def test_adds_closed_attribute(self, closed: IntervalClosed):
-        """Should add the closed side to the coordinate attributes."""
         interval = pd.interval_range(
             0, 10, periods=5, closed=closed, name="test"
         )
@@ -246,7 +221,6 @@ class TestIntervalToBounds:
 
     @hp.given(name=xrst.names())
     def test_adds_bounds_attribute(self, name: str):
-        """Should add the bounds attribute to the coordinate."""
         hp.assume(name != OPTIONS["bounds_dim"])
         interval = pd.interval_range(
             0, 10, periods=5, closed="right", name=name
@@ -262,7 +236,6 @@ class TestIntervalToBounds:
         ],
     )
     def test_bounds_correctness(self, data: list):
-        """Should produce correct bounds data."""
         interval = pd.IntervalIndex.from_tuples(data, name="test")
         bounds = interval_to_bounds(interval)
         expected = np.array(data)
@@ -279,7 +252,6 @@ class TestIntervalToBounds:
     def test_coord_correctness(
         self, data: list, label: IntervalLabel, expected: list
     ):
-        """Should keep the original intervals as the coordinate."""
         interval = pd.IntervalIndex.from_tuples(data, name="test")
         bounds = interval_to_bounds(interval, label=label)
         coord = bounds.coords["test"]
@@ -288,14 +260,12 @@ class TestIntervalToBounds:
 
 class TestBoundsToInterval:
     def test_raises_if_not_2d(self):
-        """Should raise an error if the dimension is not 2D."""
         da = xr.tutorial.open_dataset("air_temperature").time
         with pt.raises(ValueError, match="2-dimensional"):
             bounds_to_interval(da)
 
     @hp.given(index=hpd.range_indexes(min_size=3))
     def test_returns_interval_index(self, index: pd.Index):
-        """Should return a pandas IntervalIndex."""
         da = xr.DataArray(data=index)
         bounds = infer_bounds(da)
         interval_index = bounds_to_interval(bounds)
@@ -309,7 +279,6 @@ class TestBoundsToInterval:
     def test_interval_index_correctness(
         self, index: pd.Index, closed: IntervalClosed, label: IntervalLabel
     ):
-        """Should return an IntervalIndex that matches the inferred bounds."""
         da = xr.DataArray(data=index)
         bounds = infer_bounds(da, closed=closed, label=label)
         interval = bounds_to_interval(bounds)

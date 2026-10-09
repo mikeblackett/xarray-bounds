@@ -34,10 +34,9 @@ class TestValidateIntervalLabel:
             st.just("invalid_label"),
         ),
     )
-    def test_should_raise_value_error_for_invalid_arguments(
+    def test_invalid_argument_raises_value_error(
         self, label: str | None, default: str | None
     ):
-        """Should raise a ValueError for invalid IntervalLabel."""
         hp.assume(not (label is None and default is None))
         with pt.raises(ValueError):
             validate_interval_label(label=label, default=default)
@@ -52,12 +51,11 @@ class TestValidateIntervalLabel:
             st.sampled_from(LabelSide),
         ),
     )
-    def test_returns_valid_interval_label(
+    def test_valid_label_is_returned(
         self,
         label: str | None,
         default: str | None,
     ):
-        """Should return a valid IntervalLabel."""
         result = validate_interval_label(
             label=label,
             default=default,
@@ -73,12 +71,11 @@ class TestValidateIntervalLabel:
             st.sampled_from(LabelSide),
         ),
     )
-    def test_returns_label_if_label_is_not_none(
+    def test_valid_label_passes_through(
         self,
         label: str,
         default: str | None,
     ):
-        """Should return a valid IntervalLabel."""
         result = validate_interval_label(
             label=label,
             default=default,
@@ -86,8 +83,7 @@ class TestValidateIntervalLabel:
         assert result == label
 
     @hp.given(default=st.sampled_from(LabelSide))
-    def test_should_use_default_when_label_is_none(self, default: LabelSide):
-        """Should return the default when label is None."""
+    def test_default_label_is_returned(self, default: LabelSide):
         result = validate_interval_label(label=None, default=default)
         assert result == default.value
 
@@ -103,10 +99,9 @@ class TestValidateIntervalClosed:
             st.just("invalid_closed"),
         ),
     )
-    def test_should_raise_value_error_for_invalid_arguments(
+    def test_invalid_argument_raises_value_error(
         self, closed: str | None, default: str | None
     ):
-        """Should raise a ValueError for invalid IntervalClosed."""
         hp.assume(not (closed is None and default is None))
         with pt.raises(ValueError):
             validate_interval_closed(closed=closed, default=default)
@@ -121,12 +116,11 @@ class TestValidateIntervalClosed:
             st.sampled_from(ClosedSide),
         ),
     )
-    def test_returns_valid_interval_closed(
+    def test_valid_interval_closed_is_returned(
         self,
         closed: str | None,
         default: str | None,
     ):
-        """Should return a valid IntervalClosed."""
         result = validate_interval_closed(
             closed=closed,
             default=default,
@@ -142,12 +136,11 @@ class TestValidateIntervalClosed:
             st.sampled_from(ClosedSide),
         ),
     )
-    def test_returns_closed_if_closed_is_not_none(
+    def test_valid_interval_closed_passes_through(
         self,
         closed: str,
         default: str | None,
     ):
-        """Should return a valid IntervalClosed."""
         result = validate_interval_closed(
             closed=closed,
             default=default,
@@ -155,8 +148,7 @@ class TestValidateIntervalClosed:
         assert result == closed
 
     @hp.given(default=st.sampled_from(ClosedSide))
-    def test_should_use_default_when_closed_is_none(self, default: ClosedSide):
-        """Should return the default when closed is None."""
+    def test_default_interval_closed_is_returned(self, default: ClosedSide):
         result = validate_interval_closed(closed=None, default=default)
         assert result == default.value
 
@@ -171,10 +163,9 @@ class TestResolveAxisName:
             "foo",
         ],
     )
-    def test_resolve_axis_name_raises_key_error(
+    def test_invalid_axis_name_raises_key_error(
         self, ds: xr.Dataset, key: str
     ):
-        """Should raise a KeyError if the axis name cannot be resolved."""
         with pt.raises(KeyError):
             resolve_axis_name(ds, key)
 
@@ -189,17 +180,15 @@ class TestResolveAxisName:
             "lon",
         ],
     )
-    def test_resolves_axis_name(self, ds: xr.Dataset, key: str):
-        """Should resolve the axis name from various CF keys."""
+    def test_axis_name_is_resolved(self, ds: xr.Dataset, key: str):
         assert resolve_axis_name(ds, key) == "X"
 
 
 class TestResolveStandardName:
     @pt.mark.parametrize("key", ["aux", "foo"])
-    def test_resolve_standard_name_raises_key_error(
+    def test_invalid_standard_name_raises_key_error(
         self, ds: xr.Dataset, key: str
     ):
-        """Should raise a KeyError if the standard name cannot be resolved."""
         with pt.raises(KeyError):
             resolve_standard_name(ds, key)
 
@@ -214,14 +203,12 @@ class TestResolveStandardName:
             "lat",
         ],
     )
-    def test_resolves_standard_name(self, ds: xr.Dataset, key: str):
-        """Should resolve the standard name from various CF keys."""
+    def test_standard_name_is_resolved(self, ds: xr.Dataset, key: str):
         assert resolve_standard_name(ds, key) == "latitude"
 
 
 class TestResolveVariableName:
-    def test_resolve_variable_name_raises_key_error(self, ds: xr.Dataset):
-        """Should raise a KeyError if the variable name cannot be resolved."""
+    def test_invalid_variable_name_raises_key_error(self, ds: xr.Dataset):
         with pt.raises(KeyError):
             resolve_variable_name(ds, "foo")
 
@@ -236,15 +223,13 @@ class TestResolveVariableName:
             "lat",
         ],
     )
-    def test_resolves_variable_name(self, ds: xr.Dataset, key: str):
-        """Should resolve the variable name from various CF keys."""
+    def test_variable_name_is_resolved(self, ds: xr.Dataset, key: str):
         assert resolve_variable_name(ds, key) == "lat"
 
 
 class TestOffsetAlias:
     @hp.given(freq=st.sampled_from(FREQ))
-    def test_from_freq_with_freq_string(self, freq: str):
-        """Should return an OffsetAlias object from a frequency string."""
+    def test_constructs_from_freq_string(self, freq: str):
         # Normalize `freq` using pandas to_offset to handle equivalent frequency strings
         # i.e. 1MS == MS, YS-JAN == YS, etc.
         date_offset = pd.tseries.frequencies.to_offset(freq)
@@ -253,28 +238,26 @@ class TestOffsetAlias:
         assert offset_alias.freqstr == date_offset.freqstr
 
     @hp.given(freq=st.sampled_from(FREQ))
-    def test_from_freq_with_date_offset(self, freq: str):
-        """Should return an OffsetAlias object from a pd.DateOffset object."""
+    def test_constructs_from_date_offset(self, freq: str):
         date_offset = pd.tseries.frequencies.to_offset(freq)
         offset_alias = OffsetAlias.from_freq(date_offset)  # type: ignore
         assert isinstance(offset_alias, OffsetAlias)
         assert offset_alias.freqstr == date_offset.freqstr
 
     @hp.given(freq=st.sampled_from(FREQ))
-    def test_to_offset_with_freq_string(self, freq: str):
+    def test_freq_str_roundtrips(self, freq: str):
         offset_alias = OffsetAlias.from_freq(freq)
+        # convert to offset to normalize freq string with default anchors:
+        # i.e. YS == YS-JAN
         expected = pd.tseries.frequencies.to_offset(freq)
-        actual = offset_alias.offset
-
-        assert expected == actual
+        observed = pd.tseries.frequencies.to_offset(offset_alias.freqstr)
+        assert expected == observed
 
     @hp.given(freq=st.sampled_from(FREQ))
-    def test_to_offset_with_date_offset(self, freq: str):
-        expected = pd.tseries.frequencies.to_offset(freq)
-        offset_alias = OffsetAlias.from_freq(expected)  # type: ignore
-        actual = offset_alias.offset
-
-        assert expected == actual
+    def test_offset_roundtrips(self, freq: str):
+        offset = pd.tseries.frequencies.to_offset(freq)
+        offset_alias = OffsetAlias.from_freq(offset)  # type: ignore
+        assert offset_alias.offset == offset
 
     @pt.mark.parametrize(
         "freq, expected",
@@ -287,8 +270,7 @@ class TestOffsetAlias:
             ("W-TUE", True),
         ],
     )
-    def test_is_end_aligned(self, freq: str, expected: bool):
-        """Should correctly identify end-aligned frequencies."""
+    def test_end_aligned_frequencies(self, freq: str, expected: bool):
         offset = OffsetAlias.from_freq(freq)
 
         assert offset.is_end_aligned is expected
@@ -319,7 +301,7 @@ class TestMappingOrKwargs:
             ({"a": 1}, {"b": 2}, "test_func"),
         ],
     )
-    def test_mapping_or_kwargs_raises_value_error(
+    def test_passing_parg_and_kwargs_raises_value_error(
         self, pargs, kwargs, func_name
     ):
         with pt.raises(ValueError):
