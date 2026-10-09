@@ -21,9 +21,9 @@ from xarray_bounds.types import (
 )
 
 __all__ = [
-    'datetime_to_interval',
-    'index_to_interval',
-    'infer_midpoint_freq',
+    "datetime_to_interval",
+    "index_to_interval",
+    "infer_midpoint_freq",
 ]
 
 
@@ -127,7 +127,7 @@ def datetime_to_interval(
     """
     if not is_datetime_index(index):
         raise TypeError(
-            f'expected a {pd.DatetimeIndex!r}, got {type(index)!r}'
+            f"expected a {pd.DatetimeIndex!r}, got {type(index)!r}"
         )
 
     if label == LabelSide.MIDDLE:
@@ -136,7 +136,7 @@ def datetime_to_interval(
         freq = pd.infer_freq(index)
 
     if freq is None:
-        raise ValueError('index must have an inferrable frequency.')
+        raise ValueError("index must have an inferrable frequency.")
 
     offset = pd.tseries.frequencies.to_offset(freq)
     assert isinstance(offset, pd.DateOffset)
@@ -219,7 +219,7 @@ def index_to_interval(
         If the index is not uniformly spaced
     """
     if index.ndim != 1:
-        raise ValueError('only 1-dimensional indices are supported.')
+        raise ValueError("only 1-dimensional indices are supported.")
 
     if index.size < 2:
         raise ValueError(
@@ -227,11 +227,11 @@ def index_to_interval(
         )
 
     if not (index.is_monotonic_increasing or index.is_monotonic_decreasing):
-        raise ValueError('index must be monotonic.')
+        raise ValueError("index must be monotonic.")
 
     diffs = np.diff(index)
     if not np.allclose(diffs, diffs[0]):
-        raise ValueError('index must be uniformly spaced.')
+        raise ValueError("index must be uniformly spaced.")
     step = diffs[0]
 
     match label:
@@ -297,19 +297,19 @@ def infer_midpoint_freq(
     """
     if not is_datetime_index(index):
         raise TypeError(
-            f'expected a {pd.DatetimeIndex!r}, got {type(index)!r}'
+            f"expected a {pd.DatetimeIndex!r}, got {type(index)!r}"
         )
 
     if index.size < 4:
         # Pandas needs >= 3 values, but we lose 1 when calculating the diffs
-        raise ValueError(f'index must have size >= 4; got {index.size=!r}')
+        raise ValueError(f"index must have size >= 4; got {index.size=!r}")
 
     if not (index.is_monotonic_increasing or index.is_monotonic_decreasing):
-        raise ValueError('index must be monotonic.')
+        raise ValueError("index must be monotonic.")
 
-    if pd.infer_freq(index) == 'D':
+    if pd.infer_freq(index) == "D":
         # Shortcut for daily frequencies
-        return 'D'
+        return "D"
 
     delta = pd.to_timedelta(index.diff())  # type: ignore[attr-defined]
     left = (index - delta / 2).dropna()
@@ -317,14 +317,14 @@ def infer_midpoint_freq(
     if freq := pd.infer_freq(left):
         # Avoid inferring exotic frequencies
         alias = OffsetAlias.from_freq(freq)
-        if alias.base in {'D', 'W', 'M', 'Q', 'Y'}:
+        if alias.base in {"D", "W", "M", "Q", "Y"}:
             return freq
 
     # The remaining possibilities are  all 'multiples' of monthly frequencies,
     # so we can snap to a monthly frequency and have pandas attempt to infer
     # the frequency. Snapping will also conveniently handle the n-1 problem
     # produced by diffing.
-    freq = 'ME' if closed == 'right' else 'MS'
+    freq = "ME" if closed == "right" else "MS"
     return pd.infer_freq(left.snap(freq).normalize())
 
 
@@ -348,6 +348,6 @@ def _left_from_midpoint(
     delta = pd.to_timedelta(index.diff())  # type: ignore[attr-defined]
     left = (index - delta / 2).dropna()
     aligned = left.shift(-1, freq=offset).normalize()
-    if not aligned.freq == offset:
-        warnings.warn('could not align midpoints to the specified frequency.')
+    if not aligned.freq is offset:
+        warnings.warn("could not align midpoints to the specified frequency.")
     return pd.to_datetime(aligned.union([aligned[-1] + offset]))

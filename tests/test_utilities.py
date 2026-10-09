@@ -18,11 +18,11 @@ from xarray_bounds.utilities import (
 )
 
 NUMPY_DTYPES: Mapping[str, st.SearchStrategy[np.dtype]] = {
-    'boolean': hnp.boolean_dtypes(),
-    'integer': hnp.integer_dtypes(),
-    'floating': hnp.floating_dtypes(sizes=(32, 64)),
-    'complex': hnp.complex_number_dtypes(),
-    'datetime': hnp.datetime64_dtypes(max_period='s'),
+    "boolean": hnp.boolean_dtypes(),
+    "integer": hnp.integer_dtypes(),
+    "floating": hnp.floating_dtypes(sizes=(32, 64)),
+    "complex": hnp.complex_number_dtypes(),
+    "datetime": hnp.datetime64_dtypes(max_period="s"),
 }
 
 
@@ -47,17 +47,21 @@ def index_dtypes(
 
 
 class TestInferInterval:
-    @hp.given(is_datetime=st.booleans())
+    @pt.mark.parametrize("is_datetime", [True, False])
     def test_delegates_logic(self, is_datetime: bool):
         """Should delegate to the appropriate function based on index type."""
         if is_datetime:
-            index = pd.date_range(start='2000-01-01', periods=5, freq='D')
+            index = pd.date_range(start="2000-01-01", periods=5, freq="D")
             interval = infer_interval(index=index)
-            assert interval.dtype.subtype == 'datetime64[ns]'
+            dtype = interval.dtype
+            assert isinstance(dtype, pd.IntervalDtype)
+            assert dtype.subtype == "datetime64[us]"
         else:
             index = pd.Index(range(5))
             interval = infer_interval(index=index)
-            assert interval.dtype.subtype == 'int64'
+            dtype = interval.dtype
+            assert isinstance(dtype, pd.IntervalDtype)
+            assert dtype.subtype == "int64"
 
 
 class TestDatetimeToInterval:
@@ -66,7 +70,7 @@ class TestDatetimeToInterval:
         self, data: st.DataObject
     ) -> None:
         """Should raise a TypeError if the index is not a DatetimeIndex."""
-        dtype = data.draw(index_dtypes(exclude=['datetime']))
+        dtype = data.draw(index_dtypes(exclude=["datetime"]))
         index = data.draw(hpd.indexes(dtype=dtype, max_size=3))
         with pt.raises(TypeError):
             datetime_to_interval(index)  # type: ignore
@@ -80,7 +84,7 @@ class TestDatetimeToInterval:
           - too short;
         """
         label = data.draw(st.sampled_from(LabelSide))
-        dtype = data.draw(index_dtypes(include=['datetime']))
+        dtype = data.draw(index_dtypes(include=["datetime"]))
         index = data.draw(hpd.indexes(dtype=dtype, max_size=5))
         assert isinstance(index, pd.DatetimeIndex)
         with pt.raises(ValueError):
@@ -89,13 +93,13 @@ class TestDatetimeToInterval:
     def test_raises_with_dst_aware_offsets(self):
         """Should raise a ValueError if the index has DST-aware offsets."""
         index = pd.date_range(
-            start='2020-03-08', periods=5, freq='3MS', tz='America/New_York'
+            start="2020-03-08", periods=5, freq="3MS", tz="America/New_York"
         )
-        with pt.raises(ValueError, match='DST-aware'):
+        with pt.raises(ValueError, match="DST-aware"):
             datetime_to_interval(index)
 
     @hp.given(
-        label=st.sampled_from(['left', 'right']),
+        label=st.sampled_from(["left", "right"]),
         closed=st.sampled_from(ClosedSide),
         start=st.integers(min_value=1890, max_value=2050),
         periods=st.integers(min_value=3, max_value=10),
@@ -132,14 +136,14 @@ class TestDatetimeToInterval:
         freq: str,
     ) -> None:
         """Should convert datetime indices with mid-point frequency to interval indices."""
-        closed = ClosedSide('left')
+        closed = ClosedSide("left")
         expected = pd.interval_range(
             start=pd.Timestamp(str(start)),
             periods=periods,
             freq=freq,
             closed=closed.value,
         )
-        index = expected.mid
+        index = pd.to_datetime(expected.mid)
         actual = datetime_to_interval(
             index=index, label=LabelSide.MIDDLE, closed=closed
         )
@@ -157,14 +161,14 @@ class TestDatetimeToInterval:
         freq: str,
     ) -> None:
         """Should convert datetime indices with mid-point frequency to interval indices."""
-        closed = ClosedSide('right')
+        closed = ClosedSide("right")
         expected = pd.interval_range(
             start=pd.Timestamp(str(start)),
             periods=periods,
             freq=freq,
             closed=closed.value,
         )
-        index = expected.mid
+        index = pd.to_datetime(expected.mid)
         actual = datetime_to_interval(
             index=index, label=LabelSide.MIDDLE, closed=closed
         )
@@ -176,7 +180,7 @@ class TestDatetimeToInterval:
     def test_index_name(self, name: str | None) -> None:
         """Should return interval with the correct name."""
         index = pd.date_range(
-            start='2000-01-01', periods=5, freq='D', name='time'
+            start="2000-01-01", periods=5, freq="D", name="time"
         )
         expected = name or index.name
         interval = datetime_to_interval(index, name=name)
@@ -189,7 +193,7 @@ class TestInferMidpointFreq:
         self, data: st.DataObject
     ) -> None:
         """Should raise a TypeError if the index is not a DatetimeIndex."""
-        dtype = data.draw(index_dtypes(exclude=['datetime']))
+        dtype = data.draw(index_dtypes(exclude=["datetime"]))
         index = data.draw(hpd.indexes(dtype=dtype))
         with pt.raises(TypeError):
             infer_midpoint_freq(index)  # type: ignore
@@ -197,34 +201,34 @@ class TestInferMidpointFreq:
     @hp.given(data=st.data())
     def test_raises_if_index_is_too_short(self, data: st.DataObject):
         """Should raise a ValueError if the index is too short."""
-        dtype = data.draw(index_dtypes(include=['datetime']))
+        dtype = data.draw(index_dtypes(include=["datetime"]))
         index = data.draw(hpd.indexes(dtype=dtype, max_size=3))
-        with pt.raises(ValueError, match='size'):
+        with pt.raises(ValueError, match="size"):
             infer_midpoint_freq(index)  # type: ignore
 
     @hp.given(data=st.data())
     def test_raises_if_index_is_not_monotonic(self, data: st.DataObject):
         """Should raise a ValueError if the index is not monotonic."""
-        dtype = data.draw(index_dtypes(include=['datetime']))
+        dtype = data.draw(index_dtypes(include=["datetime"]))
         index = data.draw(hpd.indexes(dtype=dtype, min_size=4))
         hp.assume(
             not (
                 index.is_monotonic_decreasing or index.is_monotonic_increasing
             )
         )
-        with pt.raises(ValueError, match='monotonic'):
+        with pt.raises(ValueError, match="monotonic"):
             infer_midpoint_freq(index)  # type: ignore
 
     @hp.given(data=st.data())
     def test_shortcuts_for_daily_frequency(self, data: st.DataObject):
         """Should shortcut for daily frequency."""
         interval = pd.interval_range(
-            start=pd.Timestamp('2000-01-01'), periods=5, freq='D'
+            start=pd.Timestamp("2000-01-01"), periods=5, freq="D"
         )
         index = pd.to_datetime(interval.mid)
         closed = data.draw(st.sampled_from(ClosedSide))
         inferred_freq = infer_midpoint_freq(index=index, closed=closed)
-        assert inferred_freq == 'D'
+        assert inferred_freq == "D"
 
     @hp.given(data=st.data())
     def test_infers_correct_freq(self, data: st.DataObject):
@@ -329,7 +333,7 @@ class TestIndexToInterval:
         )
 
         index = getattr(
-            expected, 'mid' if label == LabelSide.MIDDLE else label
+            expected, "mid" if label == LabelSide.MIDDLE else label
         )
 
         actual = index_to_interval(
@@ -371,11 +375,11 @@ class TestIndexToInterval:
             freq=step,
             closed=closed_flipped.value,
         )
-        expected = pd.IntervalIndex(expected[::-1])
+        expected = pd.IntervalIndex(expected.to_list()[::-1])
 
         index = getattr(
             expected,
-            'mid' if label_flipped == LabelSide.MIDDLE else label_flipped,
+            "mid" if label_flipped == LabelSide.MIDDLE else label_flipped,
         )
 
         actual = index_to_interval(
@@ -386,7 +390,7 @@ class TestIndexToInterval:
     @hp.given(name=st.one_of(st.none(), st.text()))
     def test_index_name(self, name: str | None) -> None:
         """Should return interval with the correct name."""
-        index = pd.RangeIndex(start=0, stop=5, step=1, name='lat')
+        index = pd.RangeIndex(start=0, stop=5, step=1, name="lat")
         expected = name or index.name
         interval = index_to_interval(index, name=name)
         assert interval.name == expected

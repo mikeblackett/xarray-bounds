@@ -21,10 +21,10 @@ from xarray_bounds.types import (
 )
 
 __all__ = [
-    'OffsetAlias',
-    'resolve_standard_name',
-    'resolve_variable_name',
-    'mapping_or_kwargs',
+    "OffsetAlias",
+    "mapping_or_kwargs",
+    "resolve_standard_name",
+    "resolve_variable_name",
 ]
 
 
@@ -83,7 +83,7 @@ def resolve_axis_name(obj: xr.Dataset | xr.DataArray, key: Hashable) -> str:
         if name in names:
             return axis
 
-    raise KeyError(f'No valid CF axis found for key {key!r}.')
+    raise KeyError(f"No valid CF axis found for key {key!r}.")
 
 
 def resolve_standard_name(
@@ -121,7 +121,7 @@ def resolve_standard_name(
         if variable in obj.cf.standard_names[name]:
             return name
 
-    raise KeyError(f'No valid CF coordinate found for key {key!r}.')
+    raise KeyError(f"No valid CF coordinate found for key {key!r}.")
 
 
 def resolve_variable_name(
@@ -150,7 +150,7 @@ def resolve_variable_name(
     try:
         return obj.cf[key].name
     except KeyError:
-        raise KeyError(f'No variable found for key {key!r}.')
+        raise KeyError(f"No variable found for key {key!r}.")
 
 
 @dataclass(frozen=True)
@@ -174,23 +174,23 @@ class OffsetAlias:
 
     n: int
     base: str
-    alignment: Literal['S', 'E'] | None = None
+    alignment: Literal["S", "E"] | None = None
     anchor: str | None = None
 
     def __str__(self) -> str:
         value = self.base
         if self.n < 0 or self.n > 1:
-            value = f'{self.n}{value}'
+            value = f"{self.n}{value}"
         if self.alignment:
-            value = f'{value}{self.alignment}'
+            value = f"{value}{self.alignment}"
         if self.anchor:
-            value = f'{value}-{self.anchor}'
+            value = f"{value}-{self.anchor}"
         return value
 
     @property
     def is_end_aligned(self) -> bool:
         """Whether the offset alias is end-aligned."""
-        return self.base == 'W' or self.alignment == 'E'
+        return self.base == "W" or self.alignment == "E"
 
     @classmethod
     def from_freq(cls, freq: str | pd.DateOffset) -> OffsetAlias:
@@ -236,9 +236,9 @@ def _parse_freq(
     """
     offset = pd.tseries.frequencies.to_offset(freq, is_period=is_period)
     alignment = None
-    base, *rest = offset.name.split(sep='-')
-    if base.endswith(('S', 'E')):
-        alignment = cast(Literal['S', 'E'], base[-1])
+    base, *rest = offset.name.split(sep="-")
+    if base.endswith(("S", "E")):
+        alignment = cast(Literal["S", "E"], base[-1])
         base = base.removesuffix(alignment)
     if is_period:
         alignment = None
@@ -251,7 +251,7 @@ def _parse_freq(
     )
 
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 def mapping_or_kwargs(
@@ -279,6 +279,6 @@ def mapping_or_kwargs(
         return cast(Mapping[Hashable, T], kwargs)
     if kwargs:
         raise ValueError(
-            f'cannot specify both keyword and positional arguments to {func_name}'
+            f"cannot specify both keyword and positional arguments to {func_name}"
         )
     return parg

@@ -10,6 +10,7 @@ for ``CFIntervalIndex``. See https://github.com/pydata/xarray/pull/10296 for det
 """
 
 from importlib.metadata import version
+
 from xarray_bounds import datasets
 from xarray_bounds.accessors import (
     DataArrayBoundsAccessor,
@@ -22,15 +23,15 @@ from xarray_bounds.core import (
 )
 from xarray_bounds.options import set_options
 
-__version__ = version('xarray_bounds')
+__version__ = version("xarray_bounds")
 
 __all__ = [
-    '__version__',
-    'bounds_to_interval',
-    'DataArrayBoundsAccessor',
-    'DatasetBoundsAccessor',
-    'datasets',
-    'infer_bounds',
-    'interval_to_bounds',
-    'set_options',
+    "DataArrayBoundsAccessor",
+    "DatasetBoundsAccessor",
+    "__version__",
+    "bounds_to_interval",
+    "datasets",
+    "infer_bounds",
+    "interval_to_bounds",
+    "set_options",
 ]

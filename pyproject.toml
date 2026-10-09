@@ -16,7 +16,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "ipykernel",
+    "jupyterlab>=4.6.4",
     "pandas-stubs",
     "pyright",
     "ruff",
@@ -45,7 +45,8 @@ build-backend = "uv_build"
 line-length = 79
 
 [tool.ruff.format]
-quote-style = "single"
+docstring-code-format = true
+docstring-code-line-length = 79
 
 [tool.coverage.run]
 source = ["livecov"]

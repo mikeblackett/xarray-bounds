@@ -5,7 +5,7 @@ Shamelessly copied from xarray https://github.com/pydata/xarray/blob/main/xarray
 
 from typing import TypedDict
 
-__all__ = ['OPTIONS', 'set_options']
+__all__ = ["OPTIONS", "set_options"]
 
 
 class Options(TypedDict):
@@ -13,7 +13,7 @@ class Options(TypedDict):
 
 
 OPTIONS: Options = {
-    'bounds_dim': 'bnds',
+    "bounds_dim": "bnds",
 }
 
 
@@ -22,10 +22,10 @@ class set_options:
 
     def __init__(self, **kwargs):
         self.old = {}
-        for k, v in kwargs.items():
+        for k in kwargs:
             if k not in OPTIONS:
                 raise ValueError(
-                    f'argument name {k!r} is not in the set of valid options {set(OPTIONS)!r}'
+                    f"argument name {k!r} is not in the set of valid options {set(OPTIONS)!r}"
                 )
             self.old[k] = OPTIONS[k]
         self._apply_update(kwargs)

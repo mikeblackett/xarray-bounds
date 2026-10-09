@@ -18,7 +18,7 @@ from xarray_bounds._helpers import (
 from xarray_bounds.types import ClosedSide, LabelSide
 
 
-@pt.fixture(scope='class')
+@pt.fixture(scope="class")
 def ds() -> xr.Dataset:
     return xrb.datasets.simple_bounds
 
@@ -27,11 +27,11 @@ class TestValidateIntervalLabel:
     @hp.given(
         label=st.one_of(
             st.none(),
-            st.just('invalid_label'),
+            st.just("invalid_label"),
         ),
         default=st.one_of(
             st.none(),
-            st.just('invalid_label'),
+            st.just("invalid_label"),
         ),
     )
     def test_should_raise_value_error_for_invalid_arguments(
@@ -88,20 +88,19 @@ class TestValidateIntervalLabel:
     @hp.given(default=st.sampled_from(LabelSide))
     def test_should_use_default_when_label_is_none(self, default: LabelSide):
         """Should return the default when label is None."""
-        for default in LabelSide:
-            result = validate_interval_label(label=None, default=default)
-            assert result == default.value
+        result = validate_interval_label(label=None, default=default)
+        assert result == default.value
 
 
 class TestValidateIntervalClosed:
     @hp.given(
         closed=st.one_of(
             st.none(),
-            st.just('invalid_closed'),
+            st.just("invalid_closed"),
         ),
         default=st.one_of(
             st.none(),
-            st.just('invalid_closed'),
+            st.just("invalid_closed"),
         ),
     )
     def test_should_raise_value_error_for_invalid_arguments(
@@ -158,19 +157,18 @@ class TestValidateIntervalClosed:
     @hp.given(default=st.sampled_from(ClosedSide))
     def test_should_use_default_when_closed_is_none(self, default: ClosedSide):
         """Should return the default when closed is None."""
-        for default in ClosedSide:
-            result = validate_interval_closed(closed=None, default=default)
-            assert result == default.value
+        result = validate_interval_closed(closed=None, default=default)
+        assert result == default.value
 
 
 class TestResolveAxisName:
     @pt.mark.parametrize(
-        'key',
+        "key",
         [
             # Coordinate that exists but is not an axis
-            'aux',
+            "aux",
             # Non-existent coordinate
-            'foo',
+            "foo",
         ],
     )
     def test_resolve_axis_name_raises_key_error(
@@ -181,23 +179,23 @@ class TestResolveAxisName:
             resolve_axis_name(ds, key)
 
     @pt.mark.parametrize(
-        'key',
+        "key",
         [
             # CF standard_name
-            'longitude',
+            "longitude",
             # CF axis name
-            'X',
+            "X",
             # variable name
-            'lon',
+            "lon",
         ],
     )
     def test_resolves_axis_name(self, ds: xr.Dataset, key: str):
         """Should resolve the axis name from various CF keys."""
-        assert resolve_axis_name(ds, key) == 'X'
+        assert resolve_axis_name(ds, key) == "X"
 
 
 class TestResolveStandardName:
-    @pt.mark.parametrize('key', ['aux', 'foo'])
+    @pt.mark.parametrize("key", ["aux", "foo"])
     def test_resolve_standard_name_raises_key_error(
         self, ds: xr.Dataset, key: str
     ):
@@ -206,41 +204,41 @@ class TestResolveStandardName:
             resolve_standard_name(ds, key)
 
     @pt.mark.parametrize(
-        'key',
+        "key",
         [
             # CF standard_name
-            'latitude',
+            "latitude",
             # CF axis name
-            'Y',
+            "Y",
             # variable name
-            'lat',
+            "lat",
         ],
     )
     def test_resolves_standard_name(self, ds: xr.Dataset, key: str):
         """Should resolve the standard name from various CF keys."""
-        assert resolve_standard_name(ds, key) == 'latitude'
+        assert resolve_standard_name(ds, key) == "latitude"
 
 
 class TestResolveVariableName:
     def test_resolve_variable_name_raises_key_error(self, ds: xr.Dataset):
         """Should raise a KeyError if the variable name cannot be resolved."""
         with pt.raises(KeyError):
-            resolve_variable_name(ds, 'foo')
+            resolve_variable_name(ds, "foo")
 
     @pt.mark.parametrize(
-        'key',
+        "key",
         [
             # CF standard_name
-            'latitude',
+            "latitude",
             # CF axis name
-            'Y',
+            "Y",
             # variable name
-            'lat',
+            "lat",
         ],
     )
     def test_resolves_variable_name(self, ds: xr.Dataset, key: str):
         """Should resolve the variable name from various CF keys."""
-        assert resolve_variable_name(ds, key) == 'lat'
+        assert resolve_variable_name(ds, key) == "lat"
 
 
 class TestOffsetAlias:
@@ -258,7 +256,7 @@ class TestOffsetAlias:
     def test_from_freq_with_date_offset(self, freq: str):
         """Should return an OffsetAlias object from a pd.DateOffset object."""
         date_offset = pd.tseries.frequencies.to_offset(freq)
-        offset_alias = OffsetAlias.from_freq(date_offset)
+        offset_alias = OffsetAlias.from_freq(date_offset)  # type: ignore
         assert isinstance(offset_alias, OffsetAlias)
         assert offset_alias.freqstr == date_offset.freqstr
 
@@ -273,20 +271,20 @@ class TestOffsetAlias:
     @hp.given(freq=st.sampled_from(FREQ))
     def test_to_offset_with_date_offset(self, freq: str):
         expected = pd.tseries.frequencies.to_offset(freq)
-        offset_alias = OffsetAlias.from_freq(expected)
+        offset_alias = OffsetAlias.from_freq(expected)  # type: ignore
         actual = offset_alias.offset
 
         assert expected == actual
 
     @pt.mark.parametrize(
-        'freq, expected',
+        "freq, expected",
         [
-            ('MS', False),
-            ('QE', True),
-            ('YS-FEB', False),
-            ('QE-DEC', True),
-            ('W', True),
-            ('W-TUE', True),
+            ("MS", False),
+            ("QE", True),
+            ("YS-FEB", False),
+            ("QE-DEC", True),
+            ("W", True),
+            ("W-TUE", True),
         ],
     )
     def test_is_end_aligned(self, freq: str, expected: bool):
@@ -298,11 +296,11 @@ class TestOffsetAlias:
 
 class TestMappingOrKwargs:
     @pt.mark.parametrize(
-        'pargs, kwargs, func_name, expected',
+        "pargs, kwargs, func_name, expected",
         [
-            ({'a': 1, 'b': 2}, {}, 'test_func', {'a': 1, 'b': 2}),
-            (None, {'a': 1, 'b': 2}, 'test_func', {'a': 1, 'b': 2}),
-            ({}, {'a': 1, 'b': 2}, 'test_func', {'a': 1, 'b': 2}),
+            ({"a": 1, "b": 2}, {}, "test_func", {"a": 1, "b": 2}),
+            (None, {"a": 1, "b": 2}, "test_func", {"a": 1, "b": 2}),
+            ({}, {"a": 1, "b": 2}, "test_func", {"a": 1, "b": 2}),
         ],
     )
     def test_mapping_or_kwargs(
@@ -316,9 +314,9 @@ class TestMappingOrKwargs:
         assert result == expected
 
     @pt.mark.parametrize(
-        'pargs, kwargs, func_name',
+        "pargs, kwargs, func_name",
         [
-            ({'a': 1}, {'b': 2}, 'test_func'),
+            ({"a": 1}, {"b": 2}, "test_func"),
         ],
     )
     def test_mapping_or_kwargs_raises_value_error(

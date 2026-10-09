@@ -20,3 +20,5 @@ _build/
 
 coverage.xml
 .coverage
+
+*.ipynb

@@ -14,13 +14,13 @@ from xarray_bounds.core import infer_bounds
 from xarray_bounds.options import OPTIONS
 from xarray_bounds.types import IntervalClosed, IntervalLabel
 
-__all__ = ['DataArrayBoundsAccessor', 'DatasetBoundsAccessor']
+__all__ = ["DataArrayBoundsAccessor", "DatasetBoundsAccessor"]
 
 
-BOUNDS_ACCESSOR_NAME = 'bnds'
+BOUNDS_ACCESSOR_NAME = "bnds"
 
 
-class BoundsAccessor(Generic[T_Xarray], Mapping[Hashable, xr.DataArray]):
+class BoundsAccessor(Mapping[Hashable, xr.DataArray], Generic[T_Xarray]):
     """Xarray accessor for CF boundary variables.
 
     This accessor returns a mapping of variable names to boundary variables.
@@ -65,7 +65,7 @@ class BoundsAccessor(Generic[T_Xarray], Mapping[Hashable, xr.DataArray]):
         key = resolve_variable_name(obj=self._obj, key=alias)
         if key in self._data:
             return key
-        raise KeyError(f'No bounds found for alias: {alias!r}')
+        raise KeyError(f"No bounds found for alias: {alias!r}")
 
     def __getitem__(self, key: Hashable) -> xr.DataArray:
         """Return the bounds for the specified key.
@@ -91,13 +91,13 @@ class BoundsAccessor(Generic[T_Xarray], Mapping[Hashable, xr.DataArray]):
 
     def __setitem__(self, key, value) -> None:
         raise TypeError(
-            f'{self.__class__.__name__} object does not support item assignment. '
+            f"{self.__class__.__name__} object does not support item assignment. "
             "You can use the 'assign_bounds' method to add bounds."
         )
 
     def __delitem__(self, key) -> None:
         raise TypeError(
-            f'{self.__class__.__name__} object does not support item deletion. '
+            f"{self.__class__.__name__} object does not support item deletion. "
             "You can use the 'drop_bounds' method to remove bounds."
         )
 
@@ -118,7 +118,7 @@ class BoundsAccessor(Generic[T_Xarray], Mapping[Hashable, xr.DataArray]):
         try:
             self._resolve_key(key)
             return True
-        except Exception:
+        except KeyError:
             return False
 
     def __iter__(self) -> Iterator[Hashable]:
@@ -236,7 +236,7 @@ class BoundsAccessor(Generic[T_Xarray], Mapping[Hashable, xr.DataArray]):
         coords = {}
         for name in names:
             if name in self:
-                raise ValueError(f'Bounds already exist for key: {name!r}')
+                raise ValueError(f"Bounds already exist for key: {name!r}")
             bounds = infer_bounds(obj=obj.cf[name], closed=closed, label=label)
             coords.update({bounds.name: bounds})
         return obj.assign_coords(coords)
@@ -271,13 +271,13 @@ class BoundsAccessor(Generic[T_Xarray], Mapping[Hashable, xr.DataArray]):
         """
         obj = self._obj.copy()
         kwargs = mapping_or_kwargs(
-            parg=bounds, kwargs=bounds_kwargs, func_name='assign_bounds'
+            parg=bounds, kwargs=bounds_kwargs, func_name="assign_bounds"
         )
         for key, value in kwargs.items():
             var = resolve_variable_name(obj=obj, key=key)
-            name = f'{var}_{OPTIONS["bounds_dim"]}'
+            name = f"{var}_{OPTIONS['bounds_dim']}"
             obj = obj.assign_coords({name: value})
-            obj[var].attrs['bounds'] = name
+            obj[var].attrs["bounds"] = name
         return cast(T_Xarray, obj)
 
     def drop_bounds(self, *keys: str) -> T_Xarray:
@@ -305,16 +305,16 @@ class BoundsAccessor(Generic[T_Xarray], Mapping[Hashable, xr.DataArray]):
         """
         obj = self._obj.copy()
 
-        names = set(resolve_variable_name(obj, key) for key in keys)
+        names = {resolve_variable_name(obj, key) for key in keys}
         if not names:
             # default to all assigned bounds
             names = set(iter(self))
 
         for name in names:
-            if 'bounds' in obj[name].attrs:
-                del obj[name].attrs['bounds']
-            if 'bounds' in obj.cf[name].encoding:
-                del obj[name].encoding['bounds']
+            if "bounds" in obj[name].attrs:
+                del obj[name].attrs["bounds"]
+            if "bounds" in obj.cf[name].encoding:
+                del obj[name].encoding["bounds"]
             obj = obj.drop_vars(self[name].name)  # type: ignore[arg-type]
         return obj
 
@@ -322,9 +322,9 @@ class BoundsAccessor(Generic[T_Xarray], Mapping[Hashable, xr.DataArray]):
         # TODO: replace with a custom representation
         return formatting._mapping_repr(
             self._data,
-            title='Bounds',
+            title="Bounds",
             summarizer=formatting.summarize_variable,
-            expand_option_name='display_expand_coords',
+            expand_option_name="display_expand_coords",
         )
 
 
@@ -332,14 +332,12 @@ class BoundsAccessor(Generic[T_Xarray], Mapping[Hashable, xr.DataArray]):
 class DatasetBoundsAccessor(BoundsAccessor[xr.Dataset]):
     """An object for adding bounds variables to xarray Dataset objects."""
 
-    pass
-
 
 @xr.register_dataarray_accessor(BOUNDS_ACCESSOR_NAME)
 class DataArrayBoundsAccessor:
     def __init__(self, obj: xr.DataArray) -> None:
         raise AttributeError(
-            f'{obj.__class__.__name__!r} '
-            f'object has no attribute {BOUNDS_ACCESSOR_NAME!r}.'
-            'To manage bounds, you can convert the DataArray to a Dataset.'
+            f"{obj.__class__.__name__!r} "
+            f"object has no attribute {BOUNDS_ACCESSOR_NAME!r}."
+            "To manage bounds, you can convert the DataArray to a Dataset."
         )

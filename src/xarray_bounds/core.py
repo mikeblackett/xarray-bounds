@@ -20,9 +20,9 @@ from xarray_bounds.types import (
 from xarray_bounds.utilities import infer_interval
 
 __all__ = [
-    'infer_bounds',
-    'bounds_to_interval',
-    'interval_to_bounds',
+    "bounds_to_interval",
+    "infer_bounds",
+    "interval_to_bounds",
 ]
 
 
@@ -62,9 +62,9 @@ def infer_bounds(
     try:
         index = obj.to_index()
     except ValueError as error:
-        raise ValueError('index must be 1-dimensional') from error
+        raise ValueError("index must be 1-dimensional") from error
 
-    if index.name == OPTIONS['bounds_dim']:
+    if index.name == OPTIONS["bounds_dim"]:
         raise ValueError(
             f'"obj.name" cannot be the same as the vertex dimension: {OPTIONS["bounds_dim"]}'
         )
@@ -85,15 +85,15 @@ def infer_bounds(
     dim = index.name
     coord = obj.name or dim
 
-    bounds = f'{coord}_{OPTIONS["bounds_dim"]}'
-    obj.attrs['bounds'] = bounds
+    bounds = f"{coord}_{OPTIONS['bounds_dim']}"
+    obj.attrs["bounds"] = bounds
 
     return xr.DataArray(
         data=data,
         coords={coord: obj},
-        dims=(dim, OPTIONS['bounds_dim']),
+        dims=(dim, OPTIONS["bounds_dim"]),
         name=bounds,
-        attrs={'closed': interval.closed},
+        attrs={"closed": interval.closed},
     )
 
 
@@ -134,15 +134,15 @@ def interval_to_bounds(
     """
     if interval.closed not in ClosedSide:
         raise ValueError(
-            f'IntervalIndex has unsupported closed attribute: {interval.closed}. '
-            f'Must be one of {list(ClosedSide)}.'
+            f"IntervalIndex has unsupported closed attribute: {interval.closed}. "
+            f"Must be one of {list(ClosedSide)}."
         )
 
     dim = dim or interval.name
 
     if dim is None:
         raise ValueError(
-            'if the interval has no name, a dimension name must be provided.'
+            "if the interval has no name, a dimension name must be provided."
         )
 
     if name is None:
@@ -150,12 +150,12 @@ def interval_to_bounds(
 
     label = validate_interval_label(label=label, default=interval.closed)
 
-    bounds = f'{name}_{OPTIONS["bounds_dim"]}'
+    bounds = f"{name}_{OPTIONS['bounds_dim']}"
 
     data = np.stack(arrays=(interval.left, interval.right), axis=1)
     axis = (
         pd.Index(
-            getattr(interval, 'mid' if label == 'middle' else label),
+            getattr(interval, "mid" if label == "middle" else label),
             name=dim,
         )
         .to_series()
@@ -166,10 +166,10 @@ def interval_to_bounds(
 
     return xr.DataArray(
         data=data,
-        dims=(dim, OPTIONS['bounds_dim']),
+        dims=(dim, OPTIONS["bounds_dim"]),
         coords={name: axis},
         name=bounds,
-        attrs={'closed': interval.closed},
+        attrs={"closed": interval.closed},
     )
 
 
@@ -188,15 +188,15 @@ def bounds_to_interval(obj: xr.DataArray) -> pd.IntervalIndex:
     """
     if obj.ndim != 2:
         raise ValueError(
-            f'obj must be 2-dimensional, got object with {obj.ndim!r} dimensions.'
+            f"obj must be 2-dimensional, got object with {obj.ndim!r} dimensions."
         )
 
     if (size := obj.sizes.get(obj.dims[1], 0)) != 2:
         raise ValueError(
-            f'second dimension of obj must have size 2, got size {size}.'
+            f"second dimension of obj must have size 2, got size {size}."
         )
 
-    closed = ClosedSide(obj.attrs.get('closed', 'left'))
+    closed = ClosedSide(obj.attrs.get("closed", "left"))
     dim = obj.dims[0]
 
     return pd.IntervalIndex.from_arrays(
