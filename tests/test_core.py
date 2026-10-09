@@ -148,6 +148,15 @@ class TestIntervalToBounds:
         with pt.raises(ValueError):
             interval_to_bounds(interval)
 
+    def test_raises_dimension_name_conflict(self):
+        """Should raise an error if the axis has the same dimension name as the bounds dimension"""
+        bounds_dim_name = OPTIONS["bounds_dim"]
+        interval = pd.interval_range(
+            0, 10, periods=5, closed="right", name=bounds_dim_name
+        )
+        with pt.raises(ValueError):
+            interval_to_bounds(interval)
+
     def test_returns_data_array_with_correct_shape(self):
         """Should return an xarray DataArray."""
         interval = pd.interval_range(
@@ -238,6 +247,7 @@ class TestIntervalToBounds:
     @hp.given(name=xrst.names())
     def test_adds_bounds_attribute(self, name: str):
         """Should add the bounds attribute to the coordinate."""
+        hp.assume(name != OPTIONS["bounds_dim"])
         interval = pd.interval_range(
             0, 10, periods=5, closed="right", name=name
         )

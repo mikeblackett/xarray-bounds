@@ -130,6 +130,8 @@ def interval_to_bounds(
     ValueError
         If the interval has an unsupported closed attribute.
     ValueError
+        If the interval/dimension name is the same as the bounds dimension name
+    ValueError
         If the interval has no name and no dimension name is provided.
     """
     if interval.closed not in ClosedSide:
@@ -147,6 +149,12 @@ def interval_to_bounds(
 
     if name is None:
         name = dim
+
+    if name == OPTIONS["bounds_dim"]:
+        raise ValueError(
+            "dimension name conflict:"
+            f" the dimension name can't be the same as the bounds dimension ({OPTIONS['bounds_dim']})."
+        )
 
     label = validate_interval_label(label=label, default=interval.closed)
 
