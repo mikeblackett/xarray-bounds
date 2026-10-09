@@ -21,7 +21,7 @@ from xarray_bounds.core import (
     infer_bounds,
     interval_to_bounds,
 )
-from xarray_bounds.options import set_options
+from xarray_bounds.options import get_options, set_options
 
 __version__ = version("xarray_bounds")
 
@@ -31,6 +31,7 @@ __all__ = [
     "__version__",
     "bounds_to_interval",
     "datasets",
+    "get_options",
     "infer_bounds",
     "interval_to_bounds",
     "set_options",

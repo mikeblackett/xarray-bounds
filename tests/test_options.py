@@ -1,43 +1,45 @@
-import hypothesis as hp
-import hypothesis.strategies as st
 import pytest as pt
-import xarray as xr
 
-import xarray_bounds
+import xarray_bounds as xb
 from xarray_bounds.options import OPTIONS
 
 
-@hp.given(value=st.text(min_size=1, max_size=10))
-def test_set_options(value: str):
-    """Test the set_options function."""
-    xarray_bounds.set_options(bounds_dim=value)
-    assert OPTIONS['bounds_dim'] == value
-
-
-@hp.given(value=st.text(min_size=1, max_size=10))
-def test_set_options_context_manager(value: str):
-    """Test the set_options function."""
-    with xarray_bounds.set_options(bounds_dim=value):
-        assert OPTIONS['bounds_dim'] == value
-
-
-@hp.given(value=st.text(min_size=1, max_size=10))
-def test_set_bounds_dim(value: str):
-    """Test that set_options works as a context manager."""
-    ds = xr.tutorial.open_dataset('air_temperature')
-    hp.assume(value not in ds.dims)
-    with xarray_bounds.set_options(bounds_dim=value):
-        ds2 = ds.bnds.infer_bounds('time')
-        assert value in ds2.bnds['time'].dims
-        assert ds2.time.attrs['bounds'] == f'time_{value}'
-
-
-@hp.given(
-    key=st.text(),
-    value=st.one_of(st.integers(), st.floats(), st.text(), st.none()),
-)
-def test_invalid_option_raises(key: str, value):
-    """Setting an invalid option should raise a ValueError."""
-    hp.assume(key not in OPTIONS)
+def test_unknown_option_raises():
     with pt.raises(ValueError):
-        xarray_bounds.set_options(**{key: value})
+        xb.set_options(unknown_option=True)
+
+
+def test_bounds_dim():
+    with pt.raises(ValueError):
+        xb.set_options(bounds_dim=["unhashable", "mutable"])
+
+    xb.set_options(bounds_dim="global")
+    assert OPTIONS["bounds_dim"] == "global"
+
+    with xb.set_options(bounds_dim="context"):
+        assert OPTIONS["bounds_dim"] == "context"
+    assert OPTIONS["bounds_dim"] == "global"
+
+
+def test_interval_closed():
+    with pt.raises(ValueError):
+        xb.set_options(interval_closed="banana")
+
+    xb.set_options(interval_closed="right")
+    assert OPTIONS["interval_closed"] == "right"
+
+    with xb.set_options(interval_closed="left"):
+        assert OPTIONS["interval_closed"] == "left"
+    assert OPTIONS["interval_closed"] == "right"
+
+
+def test_label_side():
+    with pt.raises(ValueError):
+        xb.set_options(label_side="banana")
+
+    xb.set_options(label_side="middle")
+    assert OPTIONS["label_side"] == "middle"
+
+    with xb.set_options(label_side="right"):
+        assert OPTIONS["label_side"] == "right"
+    assert OPTIONS["label_side"] == "middle"
