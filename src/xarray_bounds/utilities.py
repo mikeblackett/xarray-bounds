@@ -19,6 +19,7 @@ from xarray_bounds.types import ClosedSide, LabelSide
 __all__ = [
     "datetime_to_interval",
     "index_to_interval",
+    "infer_interval",
     "infer_midpoint_freq",
 ]
 
