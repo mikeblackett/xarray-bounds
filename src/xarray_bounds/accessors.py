@@ -129,8 +129,7 @@ class BoundsAccessor(Mapping[Hashable, xr.DataArray], Generic[T_Xarray]):
         Iterator[Hashable]
             An iterator over the canonical keys.
         """
-        for key in self._data:
-            yield str(key)
+        yield from self._data
 
     def __len__(self) -> int:
         """Return the number of bounds in this object.
