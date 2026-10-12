@@ -57,12 +57,13 @@ Or for development, using [uv](https://docs.astral.sh/uv/):
 ```bash
 git clone https://github.com/mikeblackett/xarray-bounds
 uv sync --dev
+```
 
 ## Quick start
 
 Example (infer bounds for a simple 1D coordinate):
 
-```python
+```python3
 import xarray as xr
 
 ds = xr.Dataset(coords={
