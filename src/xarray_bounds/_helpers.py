@@ -21,13 +21,6 @@ from xarray_bounds.types import (
     LabelSide,
 )
 
-__all__ = [
-    "OffsetAlias",
-    "mapping_or_kwargs",
-    "resolve_standard_name",
-    "resolve_variable_name",
-]
-
 
 def validate_interval_label(
     label: str | None, default: str | None = None
@@ -47,80 +40,6 @@ def validate_interval_closed(
     if closed is None and default is None:
         return OPTIONS["interval_closed"].value
     return ClosedSide(default).value
-
-
-def resolve_axis_name(obj: xr.Dataset | xr.DataArray, key: Hashable) -> str:
-    """Return the valid Axis standard name for a given key.
-
-    Parameters
-    ----------
-    obj : xr.Dataset | xr.DataArray
-        An xarray object.
-    key : Hashable
-        The name of a variable.
-        Can be any alias understood by :py:mod:`cf_xarray`.
-
-    Returns
-    -------
-    str
-        The valid Axis standard name
-
-    Raises
-    ------
-    KeyError
-        If no valid Axis standard name is found for the given key.
-    """
-    if key in obj.cf.axes:
-        # The key is already an axis name
-        return cast(str, key)
-
-    # Key is either a variable name, standard name or invalid
-    name = resolve_variable_name(obj=obj, key=key)
-
-    # ``cf.axes`` is a mapping of axis name to variable names
-    for axis, names in obj.cf.axes.items():
-        if name in names:
-            return axis
-
-    raise KeyError(f"No valid CF axis found for key {key!r}.")
-
-
-def resolve_standard_name(
-    obj: xr.Dataset | xr.DataArray, key: Hashable
-) -> str:
-    """Return the standard name for a given key.
-
-    Parameters
-    ----------
-    obj : xr.Dataset | xr.DataArray
-        An xarray object.
-    key : Hashable
-        The name of a variable.
-        Can be any alias understood by :py:mod:`cf_xarray`.
-
-    Returns
-    -------
-    Hashable
-        The standard name
-
-    Raises
-    ------
-    KeyError
-        If no standard name is found for the given key.
-    """
-    if key in obj.cf.standard_names:
-        # The key is already a standard name
-        return cast(str, key)
-
-    # The key is a variable name, axis name, or invalid
-    variable = resolve_variable_name(obj=obj, key=key)
-
-    # ``cf.standard_names`` is a mapping of standard name to variable names
-    for name in obj.cf.standard_names:
-        if variable in obj.cf.standard_names[name]:
-            return name
-
-    raise KeyError(f"No valid CF standard name found for key {key!r}.")
 
 
 def resolve_variable_name(
