@@ -14,11 +14,7 @@ import numpy as np
 import pandas as pd
 
 from xarray_bounds._helpers import OffsetAlias
-from xarray_bounds.types import (
-    ClosedSide,
-    LabelSide,
-    is_datetime_index,
-)
+from xarray_bounds.types import ClosedSide, LabelSide
 
 __all__ = [
     "datetime_to_interval",
@@ -55,7 +51,7 @@ def infer_interval(
     pd.IntervalIndex
         The interval index representing the bounds.
     """
-    if is_datetime_index(index):
+    if isinstance(index, pd.DatetimeIndex):
         return datetime_to_interval(
             index=index,
             closed=closed,
@@ -125,7 +121,7 @@ def datetime_to_interval(
     --------
     infer_freq_from_midpoint : Infer the frequency of an index of time midpoints.
     """
-    if not is_datetime_index(index):
+    if not isinstance(index, pd.DatetimeIndex):
         raise TypeError(
             f"expected a {pd.DatetimeIndex!r}, got {type(index)!r}"
         )
@@ -295,7 +291,7 @@ def infer_midpoint_freq(
     --------`
     infer_freq : Infer the frequency of a time index
     """
-    if not is_datetime_index(index):
+    if not isinstance(index, pd.DatetimeIndex):
         raise TypeError(
             f"expected a {pd.DatetimeIndex!r}, got {type(index)!r}"
         )
