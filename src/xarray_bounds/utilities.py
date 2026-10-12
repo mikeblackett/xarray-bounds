@@ -30,6 +30,7 @@ def infer_interval(
     label: LabelSide = LabelSide.LEFT,
     closed: ClosedSide = ClosedSide.LEFT,
     name: Hashable | None = None,
+    normalize: bool = False,
 ) -> pd.IntervalIndex:
     """Infer an interval index from a regularly spaced pandas index.
 
@@ -46,6 +47,8 @@ def infer_interval(
         The closed side of the interval.
     name : Hashable | None, optional
         The name of the interval index. If None, the name of the index is used.
+    normalize : bool, optional
+        Whether to normalize the datetime index. Ignored for other index types.
 
     Returns
     -------
@@ -58,7 +61,7 @@ def infer_interval(
             closed=closed,
             label=label,
             name=name,
-            normalize=False,
+            normalize=normalize,
         )
 
     return index_to_interval(
@@ -289,7 +292,7 @@ def infer_midpoint_freq(
         index is not 1D.
 
     See Also
-    --------`
+    --------
     infer_freq : Infer the frequency of a time index
     """
     if not isinstance(index, pd.DatetimeIndex):
