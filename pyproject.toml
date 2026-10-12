@@ -11,7 +11,6 @@ dependencies = [
     "cf-xarray",
     "numpy",
     "pandas",
-    "pytest-mock>=3.16.0",
     "xarray>=2025.03.1",
 ]
 
@@ -20,6 +19,7 @@ dev = [
     "jupyterlab>=4.6.4",
     "pandas-stubs",
     "pyright",
+    "pytest-mock>=3.16.0",
     "ruff",
     "xarray[accel,io,parallel]",
     { include-group = "docs" },
