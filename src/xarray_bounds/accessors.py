@@ -149,37 +149,37 @@ class BoundsAccessor(Mapping[Hashable, xr.DataArray], Generic[T_Xarray]):
         return tuple(dim for dim in self._obj.dims if dim in dims)
 
     @property
-    def variable_names(self) -> dict[Hashable, Hashable]:
+    def variable_names(self) -> dict[Hashable, tuple[str]]:
         """Mapping of variable names to bounds names."""
         return {
-            key: value
+            key: tuple(value)
             for key, value in self._obj.cf.bounds.items()
             if key in self._obj.coords
         }
 
     @property
-    def axes(self) -> dict[str, Hashable]:
+    def axes(self) -> dict[str, tuple[str]]:
         """Mapping of valid Axis standard names to bounds names."""
         return {
-            key: value
+            key: tuple(value)
             for key, value in self._obj.cf.bounds.items()
             if key in self._obj.cf.axes
         }
 
     @property
-    def standard_names(self) -> dict[str, Hashable]:
+    def standard_names(self) -> dict[str, tuple[str]]:
         """Mapping of standard names to bounds names."""
         return {
-            key: value
+            key: tuple(value)
             for key, value in self._obj.cf.bounds.items()
             if key in self._obj.cf.standard_names
         }
 
     @property
-    def coordinates(self) -> dict[str, Hashable]:
+    def coordinates(self) -> dict[str, tuple[str]]:
         """Mapping of valid Coordinate standard names to bounds names."""
         return {
-            key: value
+            key: tuple(value)
             for key, value in self._obj.cf.bounds.items()
             if key in self._obj.cf.coordinates
         }

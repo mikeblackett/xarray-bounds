@@ -43,6 +43,38 @@ class TestDatasetBoundsAccessor:
         actual = ds.bnds.get(key)
         xr.testing.assert_identical(actual, expected)
 
+    @pt.mark.parametrize("var", ["lat", "lon", "time"])
+    def test_variable_names_property(self, ds: xr.Dataset, var: str):
+        expected = f"{var}_{BOUNDS_NAME}"
+        assert expected in ds.bnds.variable_names[var]
+
+    @pt.mark.parametrize(
+        "var, axis", [("lat", "Y"), ("lon", "X"), ("time", "T")]
+    )
+    def test_axes_property(self, ds: xr.Dataset, var: str, axis: str):
+        expected = f"{var}_{BOUNDS_NAME}"
+        assert expected in ds.bnds.axes[axis]
+
+    @pt.mark.parametrize(
+        "var, standard_name",
+        [("lat", "latitude"), ("lon", "longitude"), ("time", "time")],
+    )
+    def test_standard_names_property(
+        self, ds: xr.Dataset, var: str, standard_name: str
+    ):
+        expected = f"{var}_{BOUNDS_NAME}"
+        assert expected in ds.bnds.standard_names[standard_name]
+
+    @pt.mark.parametrize(
+        "var, coordinate",
+        [("lat", "latitude"), ("lon", "longitude"), ("time", "time")],
+    )
+    def test_coordinates_property(
+        self, ds: xr.Dataset, var: str, coordinate: str
+    ):
+        expected = f"{var}_{BOUNDS_NAME}"
+        assert expected in ds.bnds.coordinates[coordinate]
+
     @hp.given(value=st.one_of(st.text(), st.none(), st.integers()))
     def test_get_default(self, ds: xr.Dataset, value: Any):
         actual = ds.bnds.get("missing_key", default=value)
