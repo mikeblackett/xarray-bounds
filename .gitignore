@@ -11,13 +11,15 @@ wheels/
 # Pycharm IDE
 .idea
 
-.hypothesis
 
 /notebooks
 
 # docs
 _build/
+generated/
 
+# test
+.hypothesis
 coverage.xml
 .coverage
 
