@@ -57,7 +57,7 @@ def infer_bounds(
     TypeError
         If the variable does not have compatible index.
     ValueError
-        If a the index is not regularly spaced.
+        If the index is not regularly spaced.
     """
     try:
         index = obj.to_index()

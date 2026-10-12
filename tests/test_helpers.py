@@ -174,10 +174,10 @@ class TestResolveVariableName:
 class TestOffsetAlias:
     @hp.given(freq=st.sampled_from(FREQ))
     def test_constructs_from_freq_string(self, freq: str):
-        # Normalize `freq` using pandas to_offset to handle equivalent frequency strings
+        offset_alias = OffsetAlias.from_freq(freq)
+        # For comparisons: normalize `freq` using pandas to_offset to handle equivalent frequency strings
         # i.e. 1MS == MS, YS-JAN == YS, etc.
         date_offset = pd.tseries.frequencies.to_offset(freq)
-        offset_alias = OffsetAlias.from_freq(freq)
         assert isinstance(offset_alias, OffsetAlias)
         assert offset_alias.freqstr == date_offset.freqstr
 
