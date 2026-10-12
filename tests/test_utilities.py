@@ -1,6 +1,5 @@
 from collections.abc import Iterable, Mapping
 from typing import cast
-import warnings
 
 import hypothesis as hp
 import hypothesis.extra.numpy as hnp
@@ -94,11 +93,12 @@ class TestDatetimeToInterval:
         with pt.raises(ValueError):
             datetime_to_interval(index)
 
-    def test_dst_aware_index_raises_value_error(self):
+    @pt.mark.parametrize("freq", ["MS", "3YS", "D"])
+    def test_non_utc_index_raises_value_error(self, freq: str):
         index = pd.date_range(
-            start="2020-03-08", periods=5, freq="3MS", tz="America/New_York"
+            start="2020-03-08", periods=5, freq=freq, tz="America/New_York"
         )
-        with pt.raises(ValueError, match="DST-aware"):
+        with pt.raises(ValueError, match="timezone"):
             datetime_to_interval(index)
 
     @hp.given(
@@ -396,13 +396,14 @@ def test_left_from_freq_with_incompatible_freq_warns(recwarn):
     )
     index = pd.to_datetime(expected.mid)
 
-    test_offset = cast(pd.DateOffset, pd.tseries.offsets.MonthEnd())
+    test_offset = pd.tseries.offsets.MonthEnd()
+    assert isinstance(test_offset, pd.DateOffset)
     with pt.warns():
         _left_from_midpoint(index, test_offset)
 
 
 def test_left_from_freq_with_compatible_freq_does_not_warn(recwarn):
-    offset = cast(pd.DateOffset, pd.tseries.offsets.MonthBegin())
+    offset = pd.tseries.offsets.MonthBegin()
     expected = pd.interval_range(
         start=pd.Timestamp("2000"),
         periods=10,
@@ -410,5 +411,6 @@ def test_left_from_freq_with_compatible_freq_does_not_warn(recwarn):
         closed="left",
     )
     index = pd.to_datetime(expected.mid)
+    assert isinstance(offset, pd.DateOffset)
     _left_from_midpoint(index, offset)
     assert len(recwarn) == 0

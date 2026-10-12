@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Hashable
+from datetime import UTC
 from typing import assert_never
 
 import numpy as np
@@ -141,10 +142,9 @@ def datetime_to_interval(
     offset = pd.tseries.frequencies.to_offset(freq)
     assert isinstance(offset, pd.DateOffset)
 
-    if index.tz is not None and offset.n == 1:
+    if index.tz not in [None, UTC]:
         raise ValueError(
-            '"datetime_to_interval" does not currently handle DST-aware offsets safely. '
-            'Consider converting "index" to UTC.'
+            f"expected 'index' with timezone 'UTC', got {str(index.tz)!r}"
         )
 
     alias = OffsetAlias.from_freq(offset)
