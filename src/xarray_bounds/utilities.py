@@ -348,6 +348,8 @@ def _left_from_midpoint(
     delta = pd.to_timedelta(index.diff())  # type: ignore[attr-defined]
     left = (index - delta / 2).dropna()
     aligned = left.shift(-1, freq=offset).normalize()
-    if not aligned.freq is offset:
-        warnings.warn("could not align midpoints to the specified frequency.")
+    if aligned.freq != offset:
+        warnings.warn(
+            f"could not align midpoints with freq {aligned.freq!r} to the specified frequency ({offset!r})."
+        )
     return pd.to_datetime(aligned.union([aligned[-1] + offset]))

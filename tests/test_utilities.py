@@ -1,4 +1,6 @@
 from collections.abc import Iterable, Mapping
+from typing import cast
+import warnings
 
 import hypothesis as hp
 import hypothesis.extra.numpy as hnp
@@ -12,6 +14,7 @@ import pytest_mock as mk
 from tests.constants import FREQ, FREQ_END, FREQ_START
 from xarray_bounds.types import ClosedSide, LabelSide
 from xarray_bounds.utilities import (
+    _left_from_midpoint,
     datetime_to_interval,
     index_to_interval,
     infer_interval,
@@ -381,3 +384,31 @@ class TestIndexToInterval:
         expected = name or index.name
         interval = index_to_interval(index, name=name)
         assert interval.name == expected
+
+
+def test_left_from_freq_with_incompatible_freq_warns(recwarn):
+    real_offset = cast(pd.DateOffset, pd.tseries.offsets.MonthBegin())
+    expected = pd.interval_range(
+        start=pd.Timestamp("2000"),
+        periods=10,
+        freq=real_offset,
+        closed="left",
+    )
+    index = pd.to_datetime(expected.mid)
+
+    test_offset = cast(pd.DateOffset, pd.tseries.offsets.MonthEnd())
+    with pt.warns():
+        _left_from_midpoint(index, test_offset)
+
+
+def test_left_from_freq_with_compatible_freq_does_not_warn(recwarn):
+    offset = cast(pd.DateOffset, pd.tseries.offsets.MonthBegin())
+    expected = pd.interval_range(
+        start=pd.Timestamp("2000"),
+        periods=10,
+        freq=offset,
+        closed="left",
+    )
+    index = pd.to_datetime(expected.mid)
+    _left_from_midpoint(index, offset)
+    assert len(recwarn) == 0
