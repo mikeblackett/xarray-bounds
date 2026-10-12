@@ -35,13 +35,11 @@ Example (infer bounds for a simple 1D coordinate):
 ```python
 import xarray as xr
 
-ds = xr.Dataset(coords={
-  'y': ('y', [0, 1, 2])
-})
+ds = xr.Dataset(coords={"y": ("y", [0, 1, 2])})
 
 # infer bounds for coordinate 'y' (labels at midpoint)
-ds2 = ds.bnds.infer_bounds('y', label='middle')
-print(ds2.bnds['y'])
+ds2 = ds.bnds.infer_bounds("y", label="middle")
+print(ds2.bnds["y"])
 ```
 
 This will add a coordinate named `y_bnds` with shape `(y, 2)` and set the
