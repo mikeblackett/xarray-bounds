@@ -13,6 +13,9 @@ dependencies = [
     "pandas",
     "xarray>=2025.03.1",
 ]
+[project.urls]
+Repository = "https://github.com/mikeblackett/xarray-bounds"
+DOCUMENTATION = "https://xarray-bounds.readthedocs.io/en/latest/"
 
 [dependency-groups]
 dev = [
