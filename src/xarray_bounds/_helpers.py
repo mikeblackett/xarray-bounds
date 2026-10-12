@@ -36,8 +36,7 @@ def validate_interval_label(
         return LabelSide(label).value
     if label is None and default is None:
         return OPTIONS["label_side"].value
-    if label is None:
-        return LabelSide(default).value
+    return LabelSide(default).value
 
 
 def validate_interval_closed(
@@ -47,8 +46,7 @@ def validate_interval_closed(
         return ClosedSide(closed).value
     if closed is None and default is None:
         return OPTIONS["interval_closed"].value
-    if closed is None:
-        return ClosedSide(default).value
+    return ClosedSide(default).value
 
 
 def resolve_axis_name(obj: xr.Dataset | xr.DataArray, key: Hashable) -> str:
@@ -122,7 +120,7 @@ def resolve_standard_name(
         if variable in obj.cf.standard_names[name]:
             return name
 
-    raise KeyError(f"No valid CF coordinate found for key {key!r}.")
+    raise KeyError(f"No valid CF standard name found for key {key!r}.")
 
 
 def resolve_variable_name(
