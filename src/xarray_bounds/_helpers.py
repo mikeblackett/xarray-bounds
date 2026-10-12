@@ -209,17 +209,13 @@ class OffsetAlias:
         return pd.tseries.frequencies.to_offset(str(self))
 
 
-def _parse_freq(
-    freq: str | pd.DateOffset, is_period: bool = False
-) -> OffsetAlias:
+def _parse_freq(freq: str | pd.DateOffset) -> OffsetAlias:
     """Parse a Pandas frequency string into its components.
 
     Parameters
     ----------
     freq : str | pd.DateOffset
         A pandas frequency string or DateOffset object.
-    is_period : bool, default False
-        Whether the frequency is for a period.
 
     Returns
     -------
@@ -235,14 +231,12 @@ def _parse_freq(
     --------
     https://pandas.pydata.org/docs/user_guide/timeseries.html#offset-aliases
     """
-    offset = pd.tseries.frequencies.to_offset(freq, is_period=is_period)
+    offset = pd.tseries.frequencies.to_offset(freq)
     alignment = None
     base, *rest = offset.name.split(sep="-")
     if base.endswith(("S", "E")):
         alignment = cast(Literal["S", "E"], base[-1])
         base = base.removesuffix(alignment)
-    if is_period:
-        alignment = None
     anchor = rest[0] if rest else None
     return OffsetAlias(
         n=offset.n,
