@@ -2,9 +2,10 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from xarray_bounds import options
+from xarray_bounds.options import OPTIONS
 
-BOUNDS_DIM = options.OPTIONS["bounds_dim"]
+bounds_dim = lambda: OPTIONS["bounds_dim"]
+rng = np.random.default_rng(12345)
 
 # --------------------------------------------------- Simple 1D coordinate axes
 time = xr.DataArray(
@@ -28,9 +29,9 @@ time_bounds = xr.DataArray(
         pd.DatetimeIndex(["2000-01-03", "2000-01-04"]),
         pd.DatetimeIndex(["2000-01-04", "2000-01-05"]),
     ],
-    dims=("time", BOUNDS_DIM),
+    dims=("time", bounds_dim()),
     coords={"time": time},
-    name=f"time_{BOUNDS_DIM}",
+    name=f"time_{bounds_dim()}",
 )
 
 lat_1d = xr.DataArray(
@@ -46,9 +47,9 @@ lat_1d_bounds = xr.DataArray(
         [95, 105],
         [105, 115],
     ],
-    dims=("lat", BOUNDS_DIM),
+    dims=("lat", bounds_dim()),
     coords={"lat": lat_1d},
-    name=f"lat_{BOUNDS_DIM}",
+    name=f"lat_{bounds_dim()}",
 )
 
 lon_1d = xr.DataArray(
@@ -63,9 +64,9 @@ lon_1d_bounds = xr.DataArray(
         [175, 185],
         [185, 195],
     ],
-    dims=("lon", BOUNDS_DIM),
+    dims=("lon", bounds_dim()),
     coords={"lon": lon_1d},
-    name=f"lon_{BOUNDS_DIM}",
+    name=f"lon_{bounds_dim()}",
 )
 
 aux = xr.DataArray(
@@ -76,7 +77,7 @@ aux = xr.DataArray(
 )
 
 temperature_1d = xr.DataArray(
-    data=np.random.rand(4, 3, 2) * 300,
+    data=rng.lognormal(size=(4, 3, 2)) * 300,
     dims=("time", "lat", "lon"),
     name="temperature",
     attrs={"standard_name": "air_temperature", "units": "K"},
@@ -100,9 +101,9 @@ simple = xr.Dataset(
 simple_bounds = simple.copy(deep=False)
 simple_bounds = simple_bounds.assign_coords(
     {
-        f"time_{BOUNDS_DIM}": time_bounds,
-        f"lat_{BOUNDS_DIM}": lat_1d_bounds,
-        f"lon_{BOUNDS_DIM}": lon_1d_bounds,
+        f"time_{bounds_dim()}": time_bounds,
+        f"lat_{bounds_dim()}": lat_1d_bounds,
+        f"lon_{bounds_dim()}": lon_1d_bounds,
     }
 ).assign_attrs(
     {
@@ -110,9 +111,9 @@ simple_bounds = simple_bounds.assign_coords(
         + " and boundary coordinate variables added.",
     }
 )
-simple_bounds["time"].attrs["bounds"] = f"time_{BOUNDS_DIM}"
-simple_bounds["lat"].attrs["bounds"] = f"lat_{BOUNDS_DIM}"
-simple_bounds["lon"].attrs["bounds"] = f"lon_{BOUNDS_DIM}"
+simple_bounds["time"].attrs["bounds"] = f"time_{bounds_dim()}"
+simple_bounds["lat"].attrs["bounds"] = f"lat_{bounds_dim()}"
+simple_bounds["lon"].attrs["bounds"] = f"lon_{bounds_dim()}"
 
 
 # --------------------------------------------------- Simple 2D coordinate axes
@@ -132,9 +133,9 @@ xc_bounds = xr.DataArray(
         [500.0, 1250.0],
         [1250.0, 1750.0],
     ],
-    dims=("xc", BOUNDS_DIM),
+    dims=("xc", bounds_dim()),
     coords={"xc": xc},
-    name=f"xc_{BOUNDS_DIM}",
+    name=f"xc_{bounds_dim()}",
 )
 
 yc = xr.DataArray(
@@ -154,9 +155,9 @@ yc_bounds = xr.DataArray(
         [-3750.0, -3000.0],
         [-3000.0, -2500.0],
     ],
-    dims=("yc", BOUNDS_DIM),
+    dims=("yc", bounds_dim()),
     coords={"yc": yc},
-    name=f"yc_{BOUNDS_DIM}",
+    name=f"yc_{bounds_dim()}",
 )
 
 lat_2d = xr.DataArray(
@@ -182,7 +183,7 @@ lon_2d = xr.DataArray(
 )
 
 temperature_2d = xr.DataArray(
-    data=np.random.rand(4, 3, 2) * 300,
+    data=rng.lognormal(size=(4, 3, 2)) * 300,
     dims=("time", "yc", "xc"),
     name="temperature",
     attrs={"standard_name": "air_temperature", "units": "K"},
@@ -218,6 +219,6 @@ simple_2d_bounds = simple_2d_bounds.assign_coords(
         + " and boundary coordinate variables added.",
     }
 )
-simple_2d_bounds["time"].attrs["bounds"] = f"time_{BOUNDS_DIM}"
-simple_2d_bounds["xc"].attrs["bounds"] = f"xc_{BOUNDS_DIM}"
-simple_2d_bounds["yc"].attrs["bounds"] = f"yc_{BOUNDS_DIM}"
+simple_2d_bounds["time"].attrs["bounds"] = f"time_{bounds_dim()}"
+simple_2d_bounds["xc"].attrs["bounds"] = f"xc_{bounds_dim()}"
+simple_2d_bounds["yc"].attrs["bounds"] = f"yc_{bounds_dim()}"

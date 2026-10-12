@@ -22,10 +22,14 @@ from xarray_bounds.types import (
     LabelSide,
 )
 
+rng = np.random.default_rng(12345)
+
 
 class TestInferBounds:
     def test_raises_if_object_not_1d(self):
-        da = xr.tutorial.open_dataset("air_temperature").air
+        da = xr.DataArray.from_dict(
+            {"dims": ("time", "vertical"), "data": rng.lognormal(size=(2, 2))}
+        )
         with pt.raises(
             ValueError,
             match="1-dimensional",
@@ -69,6 +73,7 @@ class TestInferBounds:
 
     @hp.given(dim=xrst.names(), index=hpd.range_indexes(min_size=4))
     def test_bounds_name(self, dim: str, index: pd.Index):
+        hp.assume(dim != OPTIONS["bounds_dim"])
         da = xr.DataArray(data=index, dims=dim)
         bounds = infer_bounds(da)
         assert bounds.name == f"{dim}_{OPTIONS['bounds_dim']}"
@@ -260,7 +265,7 @@ class TestIntervalToBounds:
 
 class TestBoundsToInterval:
     def test_raises_if_not_2d(self):
-        da = xr.tutorial.open_dataset("air_temperature").time
+        da = xr.DataArray.from_dict({"dims": "time", "data": range(10)})
         with pt.raises(ValueError, match="2-dimensional"):
             bounds_to_interval(da)
 
