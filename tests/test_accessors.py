@@ -184,5 +184,5 @@ class TestDatasetBoundsAccessor:
 
 class TestDataArrayBoundsAccessor:
     def test_init(self):
-        with pt.raises((AttributeError, RuntimeError)):
-            xr.DataArray().bounds  # noqa
+        with pt.raises(NotImplementedError):
+            xr.DataArray().bnds  # noqa

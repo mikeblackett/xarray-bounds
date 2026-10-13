@@ -335,8 +335,7 @@ class DatasetBoundsAccessor(BoundsAccessor[xr.Dataset]):
 @xr.register_dataarray_accessor(BOUNDS_ACCESSOR_NAME)
 class DataArrayBoundsAccessor:
     def __init__(self, obj: xr.DataArray) -> None:
-        raise AttributeError(
-            f"{obj.__class__.__name__!r} "
-            f"object has no attribute {BOUNDS_ACCESSOR_NAME!r}."
-            "To manage bounds, you can convert the DataArray to a Dataset."
+        raise NotImplementedError(
+            f"the {BOUNDS_ACCESSOR_NAME!r} accessor is not available for DataArray objects."
+            " To manage bounds, convert the DataArray to a Dataset (e.g. `obj.to_dataset()`)."
         )
