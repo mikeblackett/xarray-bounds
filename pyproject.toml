@@ -3,6 +3,8 @@ name = "xarray-bounds"
 version = "0.5.3"
 description = "An xarray accessor for CF-compliant bounds "
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "Mike Blackett", email = "27811528+mikeblackett@users.noreply.github.com" },
 ]
