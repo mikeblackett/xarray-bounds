@@ -68,7 +68,7 @@ def resolve_variable_name(
     try:
         return obj.cf[key].name
     except KeyError:
-        raise KeyError(f"No variable found for key {key!r}.")
+        raise KeyError(f"no variable found for key {key!r}.")
 
 
 @dataclass(frozen=True)

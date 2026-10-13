@@ -287,7 +287,7 @@ class BoundsAccessor(Mapping[Hashable, xr.DataArray], Generic[T_Xarray]):
         Parameters
         ----------
         *keys : str
-            Names of coordinates whose bounds to drop.
+            Names of variables whose bounds to drop.
             The names can be any alias understood by :py:mod:`cf_xarray`.
 
         Returns
@@ -298,23 +298,26 @@ class BoundsAccessor(Mapping[Hashable, xr.DataArray], Generic[T_Xarray]):
         Raises
         ------
         KeyError
-            If a key is not found in the object.
-        ValueError
-            If bounds do not exist for a specified dimension.
+            If a variable does not exist for a specified key.
+        KeyError
+            If bounds do not exist for a specified key.
         """
         obj = self._obj.copy()
 
-        names = {resolve_variable_name(obj, key) for key in keys}
-        if not names:
+        if not keys:
             # default to all assigned bounds
-            names = set(iter(self))
+            variables = set(self)
+        else:
+            variables = {resolve_variable_name(obj, key) for key in keys}
 
-        for name in names:
-            if "bounds" in obj[name].attrs:
-                del obj[name].attrs["bounds"]
-            if "bounds" in obj.cf[name].encoding:
-                del obj[name].encoding["bounds"]
-            obj = obj.drop_vars(self[name].name)  # type: ignore[arg-type]
+        bounds: set[str] = set()
+        for variable in variables:
+            bounds |= set(self.variable_names[variable])
+            if "bounds" in obj[variable].attrs:
+                del obj[variable].attrs["bounds"]
+            if "bounds" in obj.cf[variable].encoding:
+                del obj[variable].encoding["bounds"]
+        obj = obj.drop_vars(bounds)
         return obj
 
     def __repr__(self) -> str:

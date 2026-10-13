@@ -128,6 +128,43 @@ class TestDatasetBoundsAccessor:
         actual = ds_no_bounds.bnds.infer_bounds()
         assert all(d in actual.bnds for d in missing)
 
+    @hp.given(dim=st.sampled_from(["time", "T"]))
+    def test_drops_bounds_for_specified_keys(self, ds: xr.Dataset, dim: str):
+        assert dim in ds.bnds
+        actual = ds.bnds.drop_bounds(dim)
+        assert dim not in actual.bnds
+        assert "bounds" not in actual.cf[dim].attrs
+
+    def test_drop_all_bounds(self, ds: xr.Dataset):
+        assert len(ds.bnds) > 0
+        actual = ds.bnds.drop_bounds()
+        assert len(actual.bnds) == 0
+        for dim in ["time", "lat", "lon"]:
+            assert "bounds" not in actual.cf[dim].attrs
+
+    def test_drop_unknown_key_raises_key_error(self, ds: xr.Dataset):
+        key = "foo"
+        assert key not in ds
+        with pt.raises(KeyError, match="no variable"):
+            ds.bnds.drop_bounds(key)
+
+    def test_drop_key_without_bounds_raises_key_error(self, ds: xr.Dataset):
+        key = "aux"
+        assert key in ds
+        with pt.raises(KeyError):
+            ds.bnds.drop_bounds(key)
+
+    def test_drop_bounds_removes_cf_bounds_attribute(self, ds: xr.Dataset):
+        ds["lat"].encoding["bounds"] = "lat_bounds"  # type: ignore[attr-defined]
+        actual = ds.bnds.drop_bounds("lat")
+        assert "bounds" not in actual["lat"].attrs
+        assert "bounds" not in actual["lat"].encoding
+
+    def test_drop_bounds_removes_cf_bounds_encoding(self, ds: xr.Dataset):
+        actual = ds.bnds.drop_bounds("lat")
+        assert "bounds" not in actual["lat"].attrs
+        assert "bounds" not in actual["lat"].encoding
+
     @hp.given(dim=st.sampled_from(["time", "T", "latitude", "Y", "lat"]))
     def test_assign_bounds(
         self, ds: xr.Dataset, ds_no_bounds: xr.Dataset, dim: str
@@ -143,35 +180,6 @@ class TestDatasetBoundsAccessor:
     ):
         ds_new = ds_no_bounds.bnds.assign_bounds(**{dim: ds.bnds[dim]})
         assert ds_new.cf[dim].attrs["bounds"] == ds.bnds[dim].name
-
-    @hp.given(dim=st.sampled_from(["time", "T"]))
-    def test_drop_bounds(self, ds: xr.Dataset, dim: str):
-        assert dim in ds.bnds
-        actual = ds.bnds.drop_bounds(dim)
-        assert dim not in actual.bnds
-        assert "bounds" not in actual.cf[dim].attrs
-
-    def test_drop_all_bounds(self, ds: xr.Dataset):
-        assert len(ds.bnds) > 0
-        actual = ds.bnds.drop_bounds()
-        assert len(actual.bnds) == 0
-        for dim in ["time", "lat", "lon"]:
-            assert "bounds" not in actual.cf[dim].attrs
-
-    def test_drop_bounds_raises_if_invalid_key(self, ds: xr.Dataset):
-        with pt.raises(KeyError):
-            ds.bnds.drop_bounds("foo")
-
-    def test_drop_bounds_removes_cf_bounds_attribute(self, ds: xr.Dataset):
-        ds["lat"].encoding["bounds"] = "lat_bounds"  # type: ignore[attr-defined]
-        actual = ds.bnds.drop_bounds("lat")
-        assert "bounds" not in actual["lat"].attrs
-        assert "bounds" not in actual["lat"].encoding
-
-    def test_drop_bounds_removes_cf_bounds_encoding(self, ds: xr.Dataset):
-        actual = ds.bnds.drop_bounds("lat")
-        assert "bounds" not in actual["lat"].attrs
-        assert "bounds" not in actual["lat"].encoding
 
     def test_raises_for_item_assignment(self, ds: xr.Dataset):
         with pt.raises(TypeError):
