@@ -13,6 +13,8 @@ import pytest_mock as mk
 from tests.constants import FREQ, FREQ_END, FREQ_START
 from xarray_bounds.types import ClosedSide, LabelSide
 from xarray_bounds.utilities import (
+    _flip_closed,
+    _flip_label,
     _left_from_midpoint,
     datetime_to_interval,
     index_to_interval,
@@ -185,6 +187,135 @@ class TestDatetimeToInterval:
         interval = datetime_to_interval(index, name=name)
         assert interval.name == expected
 
+    @hp.given(
+        start=st.integers(min_value=1890, max_value=2050),
+        periods=st.integers(min_value=3, max_value=10),
+        freq=st.sampled_from(FREQ),
+        closed=st.sampled_from(ClosedSide),
+        label=st.sampled_from([LabelSide.LEFT, LabelSide.RIGHT]),
+    )
+    def test_decreasing_regularly_spaced_index_is_converted(
+        self,
+        start: int,
+        periods: int,
+        freq: str,
+        closed: ClosedSide,
+        label: LabelSide,
+    ) -> None:
+        # A decreasing index should produce the mirror image of the
+        # increasing case: the same intervals in reverse order, with the
+        # closed side flipped.
+        closed_flipped = (
+            ClosedSide.RIGHT if closed is ClosedSide.LEFT else ClosedSide.LEFT
+        )
+        label_flipped = (
+            LabelSide.RIGHT if label is LabelSide.LEFT else LabelSide.LEFT
+        )
+        expected = pd.interval_range(
+            start=pd.Timestamp(str(start)),
+            periods=periods,
+            freq=freq,
+            closed=closed_flipped.value,
+        )
+        expected = pd.IntervalIndex(expected.to_list()[::-1])
+        index = pd.to_datetime(getattr(expected, label_flipped.value))
+        actual = datetime_to_interval(index=index, label=label, closed=closed)
+        np.testing.assert_array_equal(actual=actual, desired=expected)
+
+    @hp.given(
+        start=st.integers(min_value=1890, max_value=2050),
+        periods=st.integers(min_value=4, max_value=10),
+        freq=st.sampled_from(FREQ_START),
+    )
+    def test_decreasing_start_aligned_midpoint_index_is_converted(
+        self,
+        start: int,
+        periods: int,
+        freq: str,
+    ) -> None:
+        closed = ClosedSide.RIGHT
+        expected = pd.interval_range(
+            start=pd.Timestamp(str(start)),
+            periods=periods,
+            freq=freq,
+            closed=ClosedSide.LEFT.value,
+        )
+        expected = pd.IntervalIndex(expected.to_list()[::-1])
+        index = pd.to_datetime(expected.mid)
+        actual = datetime_to_interval(
+            index=index, label=LabelSide.MIDDLE, closed=closed
+        )
+        np.testing.assert_array_equal(actual=actual, desired=expected)
+
+    @hp.given(
+        start=st.integers(min_value=1890, max_value=2050),
+        periods=st.integers(min_value=4, max_value=10),
+        freq=st.sampled_from(FREQ_END),
+    )
+    def test_decreasing_end_aligned_midpoint_index_is_converted(
+        self,
+        start: int,
+        periods: int,
+        freq: str,
+    ) -> None:
+        closed = ClosedSide.LEFT
+        expected = pd.interval_range(
+            start=pd.Timestamp(str(start)),
+            periods=periods,
+            freq=freq,
+            closed=ClosedSide.RIGHT.value,
+        )
+        expected = pd.IntervalIndex(expected.to_list()[::-1])
+        index = pd.to_datetime(expected.mid)
+        actual = datetime_to_interval(
+            index=index, label=LabelSide.MIDDLE, closed=closed
+        )
+        np.testing.assert_array_equal(actual=actual, desired=expected)
+
+    def test_decreasing_midpoint_returns_correct_intervals(self):
+        # Regression test: decreasing midpoint indices previously produced
+        # duplicated and shifted intervals.
+        expected = pd.interval_range(
+            start=pd.Timestamp("2000-01-01"),
+            periods=4,
+            freq="ME",
+            closed=ClosedSide.RIGHT.value,
+        )
+        expected = pd.IntervalIndex(expected.to_list()[::-1])
+        index = pd.to_datetime(expected.mid)
+        actual = datetime_to_interval(
+            index=index, label=LabelSide.MIDDLE, closed=ClosedSide.LEFT
+        )
+        np.testing.assert_array_equal(actual=actual, desired=expected)
+
+    @hp.given(
+        freq=st.sampled_from(["D", "MS", "ME", "W"]),
+        # Only edge labels are used here: for midpoint labels, one of the
+        # two mirrored ``closed`` sides is not reliably inferrable (a
+        # pre-existing limitation, covered by the midpoint roundtrip tests
+        # above).
+        label=st.sampled_from([LabelSide.LEFT, LabelSide.RIGHT]),
+        closed=st.sampled_from(ClosedSide),
+        periods=st.integers(min_value=4, max_value=8),
+    )
+    def test_decreasing_index_is_mirror_of_increasing(
+        self, freq: str, label: LabelSide, closed: ClosedSide, periods: int
+    ) -> None:
+        expected = pd.interval_range(
+            start=pd.Timestamp("2000-01-01"),
+            periods=periods,
+            freq=freq,
+            closed=closed.value,
+        )
+        index = pd.to_datetime(getattr(expected, label.value))
+        actual = datetime_to_interval(index=index, label=label, closed=closed)
+        mirrored = datetime_to_interval(
+            index=index[::-1],
+            label=_flip_label(label),
+            closed=_flip_closed(closed),
+        )
+        np.testing.assert_array_equal(actual, mirrored[::-1])
+
 
 class TestInferMidpointFreq:
     @hp.given(data=st.data())
@@ -258,6 +389,17 @@ class TestInferMidpointFreq:
                 freq=inferred_freq,
             )
             np.testing.assert_array_equal(actual, index)
+
+    def test_decreasing_datetime_index_is_mirrored(self):
+        # A decreasing index should be mirrored to the increasing case,
+        # with the closed side flipped.
+        expected = pd.interval_range(
+            start=pd.Timestamp("2000-01-01"), periods=6, freq="ME"
+        )
+        increasing = pd.to_datetime(expected.mid)
+        decreasing = increasing[::-1]
+        assert infer_midpoint_freq(increasing, closed=ClosedSide.RIGHT) == "ME"
+        assert infer_midpoint_freq(decreasing, closed=ClosedSide.LEFT) == "ME"
 
 
 class TestIndexToInterval:

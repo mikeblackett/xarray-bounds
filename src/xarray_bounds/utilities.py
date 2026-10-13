@@ -25,6 +25,26 @@ __all__ = [
 ]
 
 
+def _flip_label(label: LabelSide | None) -> LabelSide | None:
+    """Return the label for the opposite side of the interval.
+
+    ``None`` and ``LabelSide.MIDDLE`` are returned unchanged.
+    """
+    if label is None or label is LabelSide.MIDDLE:
+        return label
+    return LabelSide.RIGHT if label is LabelSide.LEFT else LabelSide.LEFT
+
+
+def _flip_closed(closed: ClosedSide | None) -> ClosedSide | None:
+    """Return the closed side for the opposite side of the interval.
+
+    ``None`` is returned unchanged.
+    """
+    if closed is None:
+        return closed
+    return ClosedSide.RIGHT if closed is ClosedSide.LEFT else ClosedSide.LEFT
+
+
 def infer_interval(
     index: pd.Index,
     *,
@@ -91,6 +111,11 @@ def datetime_to_interval(
     the input index when using a pandas/xarray `resample` operation with the
     provided `label` and `closed` arguments.
 
+    The index may be monotonic increasing or decreasing. Decreasing indices
+    are handled by mirroring the increasing case: the ``label`` and ``closed``
+    arguments are interpreted relative to the direction of the axis, and the
+    resulting intervals are returned in the original (decreasing) order.
+
     Parameters
     ----------
     index : pd.DatetimeIndex
@@ -131,6 +156,21 @@ def datetime_to_interval(
             f"expected a {pd.DatetimeIndex!r}, got {type(index)!r}"
         )
 
+    if index.is_monotonic_decreasing and not index.is_monotonic_increasing:
+        # Mirror to the increasing case (the same convention as
+        # ``index_to_interval``): reverse the index and the label/closed
+        # sides, then reverse the result.
+        # Note: empty and single-element indices are monotonic in both
+        # directions, so they are excluded here.
+        result = datetime_to_interval(
+            index[::-1],
+            label=_flip_label(label),
+            closed=_flip_closed(closed),
+            name=name,
+            normalize=normalize,
+        )
+        return result[::-1]
+
     if label == LabelSide.MIDDLE:
         freq = infer_midpoint_freq(index, closed)
     else:
@@ -169,13 +209,6 @@ def datetime_to_interval(
     if normalize:
         left = left.normalize()
         right = right.normalize()
-
-    if index.is_monotonic_decreasing:
-        # IntervalIndex requires left <= right
-        left, right = right, left
-        closed = (
-            ClosedSide.RIGHT if closed == ClosedSide.LEFT else ClosedSide.LEFT
-        )
 
     return pd.IntervalIndex.from_arrays(
         left=left,
@@ -306,6 +339,10 @@ def infer_midpoint_freq(
 
     if not (index.is_monotonic_increasing or index.is_monotonic_decreasing):
         raise ValueError("index must be monotonic.")
+
+    if index.is_monotonic_decreasing and not index.is_monotonic_increasing:
+        # Mirror to the increasing case (see ``datetime_to_interval``).
+        return infer_midpoint_freq(index[::-1], closed=_flip_closed(closed))
 
     if pd.infer_freq(index) == "D":
         # Shortcut for daily frequencies
