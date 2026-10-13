@@ -97,12 +97,18 @@ class TestDatasetBoundsAccessor:
         actual = len(ds.bnds)
         assert actual == expected
 
+    def test_infer_raises_if_no_cf_axes(self, ds: xr.Dataset):
+        # should only auto-infer bounds for CF axes
+        ds = ds.drop_attrs(deep=True)
+        with pt.raises(ValueError, match="guess_coord_axis"):
+            ds.bnds.infer_bounds()
+
     def test_infer_bounds_raises_if_invalid_key(self, ds: xr.Dataset):
         with pt.raises(KeyError):
             ds.bnds.infer_bounds("foo")
 
     def test_infer_bounds_raises_for_existing_bounds(self, ds: xr.Dataset):
-        with pt.raises(ValueError):
+        with pt.raises(ValueError, match="bounds already exist"):
             ds.bnds.infer_bounds("time")
 
     @pt.mark.parametrize(
@@ -127,6 +133,14 @@ class TestDatasetBoundsAccessor:
         assert not all(d in ds_no_bounds.bnds for d in missing)
         actual = ds_no_bounds.bnds.infer_bounds()
         assert all(d in actual.bnds for d in missing)
+
+    def test_infer_missing_bounds_in_axis_order(
+        self, ds_no_bounds: xr.Dataset
+    ):
+        expected = list(ds_no_bounds.cf.axes.keys())
+        ds_with_bounds = ds_no_bounds.bnds.infer_bounds()
+        actual = list(ds_with_bounds.bnds.axes.keys())
+        assert expected == actual
 
     @hp.given(dim=st.sampled_from(["time", "T"]))
     def test_drops_bounds_for_specified_keys(self, ds: xr.Dataset, dim: str):

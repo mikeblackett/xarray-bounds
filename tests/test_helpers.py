@@ -9,6 +9,7 @@ from tests.constants import FREQ
 from xarray_bounds._helpers import (
     OffsetAlias,
     mapping_or_kwargs,
+    resolve_axis_name,
     resolve_variable_name,
     validate_interval_closed,
     validate_interval_label,
@@ -149,6 +150,37 @@ class TestValidateIntervalClosed:
     def test_default_interval_closed_is_returned(self, default: ClosedSide):
         result = validate_interval_closed(closed=None, default=default)
         assert result == default.value
+
+
+class TestResolveAxisName:
+    @pt.mark.parametrize(
+        "key",
+        [
+            # Coordinate that exists but is not an axis
+            "aux",
+            # Non-existent coordinate
+            "foo",
+        ],
+    )
+    def test_invalid_axis_name_raises_key_error(
+        self, ds: xr.Dataset, key: str
+    ):
+        with pt.raises(KeyError):
+            resolve_axis_name(ds, key)
+
+    @pt.mark.parametrize(
+        "key",
+        [
+            # CF standard_name
+            "longitude",
+            # CF axis name
+            "X",
+            # variable name
+            "lon",
+        ],
+    )
+    def test_axis_name_is_resolved(self, ds: xr.Dataset, key: str):
+        assert resolve_axis_name(ds, key) == "X"
 
 
 class TestResolveVariableName:

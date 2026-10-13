@@ -71,6 +71,42 @@ def resolve_variable_name(
         raise KeyError(f"no variable found for key {key!r}.")
 
 
+def resolve_axis_name(
+    obj: xr.Dataset | xr.DataArray, key: Hashable
+) -> Hashable:
+    """Return the axis name for a given key.
+
+    Parameters
+    ----------
+    obj : xr.Dataset | xr.DataArray
+        An xarray object.
+    key : Hashable
+        The name of an axis.
+        Can be any alias understood by :py:mod:`cf_xarray`.
+
+    Returns
+    -------
+    Hashable
+        The axis name
+
+    Raises
+    ------
+    KeyError
+        If no axis is found for the given key.
+    """
+    if key in obj.cf.axes:
+        # key is already an axis name
+        return cast(str, key)
+
+    name = resolve_variable_name(obj, key)
+
+    for axis, variables in obj.cf.axes.items():
+        if name in variables:
+            return axis
+
+    raise KeyError(f"No valid CF axis found for key {key!r}.")
+
+
 @dataclass(frozen=True)
 class OffsetAlias:
     """An object representing a parsed Pandas offset alias: a ``freq`` string.

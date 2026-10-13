@@ -1,5 +1,5 @@
 from collections.abc import Hashable, Iterator, Mapping
-from typing import Generic, cast
+from typing import Generic, Literal, cast
 
 import cf_xarray  # noqa F401
 import xarray as xr
@@ -8,6 +8,7 @@ from xarray.core.types import T_Xarray
 
 from xarray_bounds._helpers import (
     mapping_or_kwargs,
+    resolve_axis_name,
     resolve_variable_name,
 )
 from xarray_bounds.core import infer_bounds
@@ -149,45 +150,46 @@ class BoundsAccessor(Mapping[Hashable, xr.DataArray], Generic[T_Xarray]):
         return tuple(dim for dim in self._obj.dims if dim in dims)
 
     @property
-    def variable_names(self) -> dict[Hashable, tuple[str]]:
+    def variable_names(self) -> dict[Hashable, tuple[str, ...]]:
         """Mapping of variable names to bounds names."""
         return {
-            key: tuple(value)
-            for key, value in self._obj.cf.bounds.items()
-            if key in self._obj.coords
+            key: self._obj.cf.bounds[key]
+            for key in self._obj.variables
+            if key in self._obj.cf.bounds
         }
 
     @property
-    def axes(self) -> dict[str, tuple[str]]:
+    def axes(self) -> dict[str, tuple[str, ...]]:
         """Mapping of valid Axis standard names to bounds names."""
-        return {
-            key: tuple(value)
-            for key, value in self._obj.cf.bounds.items()
-            if key in self._obj.cf.axes
-        }
+        return self._bounds_by_cf_key("axes")
 
     @property
-    def standard_names(self) -> dict[str, tuple[str]]:
+    def standard_names(self) -> dict[str, tuple[str, ...]]:
         """Mapping of standard names to bounds names."""
-        return {
-            key: tuple(value)
-            for key, value in self._obj.cf.bounds.items()
-            if key in self._obj.cf.standard_names
-        }
+        return self._bounds_by_cf_key("standard_names")
 
     @property
-    def coordinates(self) -> dict[str, tuple[str]]:
+    def coordinates(self) -> dict[str, tuple[str, ...]]:
         """Mapping of valid Coordinate standard names to bounds names."""
-        return {
-            key: tuple(value)
-            for key, value in self._obj.cf.bounds.items()
-            if key in self._obj.cf.coordinates
-        }
+        return self._bounds_by_cf_key("coordinates")
 
     @property
     def sizes(self) -> dict[Hashable, Mapping[Hashable, int]]:
         """Mapping of dimension names to bounds sizes."""
         return {key: value.sizes for key, value in self._data.items()}
+
+    def _bounds_by_cf_key(
+        self,
+        cf_key: Literal["standard_names", "axes", "coordinates"],
+    ) -> dict[str, tuple[str, ...]]:
+        """Return a mapping of CF names to bounds.
+
+        The order is the same as ``cf_xarray``."""
+        return {
+            key: self._obj.cf.bounds[key]
+            for key in getattr(self._obj.cf, cf_key)
+            if key in self._obj.cf.bounds
+        }
 
     def infer_bounds(
         self,
@@ -220,6 +222,8 @@ class BoundsAccessor(Mapping[Hashable, xr.DataArray], Generic[T_Xarray]):
         KeyError
             If a key is not found in the object.
         ValueError
+            If no keys are specified and no CF axes are found.
+        ValueError
             If the coordinate is not 1D.
         TypeError
             If the coordinate does not have a compatible index.
@@ -229,15 +233,28 @@ class BoundsAccessor(Mapping[Hashable, xr.DataArray], Generic[T_Xarray]):
             If bounds already exist for a specified dimension.
         """
         obj = self._obj.copy()
-        names = set(keys)
-        if not names:
-            names = set(self._obj.cf.axes) - set(self.axes)
+
+        axes = {resolve_axis_name(obj, key) for key in keys}
+        if not axes:
+            # all CF axes that don't already have bounds
+            axes = set(obj.cf.axes) - set(self.axes)
+        if not axes:
+            raise ValueError(
+                "no CF axes found to infer bounds for."
+                " You can try `obj.cf.guess_coord_axis()` to discover CF axis variables."
+            )
+
         coords = {}
-        for name in names:
-            if name in self:
-                raise ValueError(f"Bounds already exist for key: {name!r}")
-            bounds = infer_bounds(obj=obj.cf[name], closed=closed, label=label)
+        # add bounds in the same order as thier axes
+        ordered = [a for a in obj.cf.axes if a in axes]
+        print(list(obj.cf.axes.keys()))
+        for axis in ordered:
+            print(axis)
+            if axis in self.axes:
+                raise ValueError(f"bounds already exist for axis: {axis!r}")
+            bounds = infer_bounds(obj=obj.cf[axis], closed=closed, label=label)
             coords.update({bounds.name: bounds})
+        print(list(coords.keys()))
         return obj.assign_coords(coords)
 
     def assign_bounds(
