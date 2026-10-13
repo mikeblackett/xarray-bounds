@@ -8,7 +8,7 @@ from typing import TypedDict
 
 from xarray.core.utils import FrozenDict
 
-from xarray_bounds.types import ClosedSide, LabelSide
+from xarray_bounds.types import ClosedSide, LabelSide, is_enum_member
 
 __all__ = ["get_options", "set_options"]
 
@@ -27,8 +27,8 @@ OPTIONS: Options = {
 
 _VALIDATORS = {
     "bounds_dim": lambda value: isinstance(value, Hashable),
-    "interval_closed": lambda value: value in ClosedSide,
-    "label_side": lambda value: value in LabelSide,
+    "interval_closed": lambda value: is_enum_member(ClosedSide, value),
+    "label_side": lambda value: is_enum_member(LabelSide, value),
 }
 
 

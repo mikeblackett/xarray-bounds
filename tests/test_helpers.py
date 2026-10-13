@@ -13,7 +13,7 @@ from xarray_bounds._helpers import (
     validate_interval_closed,
     validate_interval_label,
 )
-from xarray_bounds.types import ClosedSide, LabelSide
+from xarray_bounds.types import ClosedSide, LabelSide, is_enum_member
 
 
 @pt.fixture(scope="class")
@@ -58,7 +58,7 @@ class TestValidateIntervalLabel:
             label=label,
             default=default,
         )
-        assert result in LabelSide
+        assert is_enum_member(LabelSide, result)
 
     @hp.given(
         label=st.one_of(
@@ -123,7 +123,7 @@ class TestValidateIntervalClosed:
             closed=closed,
             default=default,
         )
-        assert result in ClosedSide
+        assert is_enum_member(ClosedSide, result)
 
     @hp.given(
         closed=st.one_of(

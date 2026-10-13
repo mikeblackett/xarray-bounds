@@ -16,6 +16,7 @@ from xarray_bounds.types import (
     IntervalClosed,
     IntervalLabel,
     LabelSide,
+    is_enum_member,
 )
 from xarray_bounds.utilities import infer_interval
 
@@ -134,7 +135,7 @@ def interval_to_bounds(
     ValueError
         If the interval has no name and no dimension name is provided.
     """
-    if interval.closed not in ClosedSide:
+    if not is_enum_member(ClosedSide, interval.closed):
         raise ValueError(
             f"IntervalIndex has unsupported closed attribute: {interval.closed}. "
             f"Must be one of {list(ClosedSide)}."
