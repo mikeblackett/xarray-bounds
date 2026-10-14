@@ -13,6 +13,7 @@ from typing import assert_never
 
 import numpy as np
 import pandas as pd
+import pandas.api.types as ptypes
 
 from xarray_bounds._helpers import OffsetAlias
 from xarray_bounds.types import ClosedSide, LabelSide
@@ -226,6 +227,8 @@ def index_to_interval(
 ) -> pd.IntervalIndex:
     """Return an interval index representing the bounds of an index.
 
+    The index must have a numeric non-boolean dtype.
+
     Parameters
     ----------
     index : pd.Index
@@ -244,6 +247,8 @@ def index_to_interval(
 
     Raises
     ------
+    TypeError
+        If the index has a non-numeric or boolean dtype
     ValueError
         If the index is too short
     ValueError
@@ -251,6 +256,10 @@ def index_to_interval(
     ValueError
         If the index is not uniformly spaced
     """
+    if not ptypes.is_numeric_dtype(index) or ptypes.is_bool_dtype(index):
+        raise TypeError(
+            f"expected {pd.Index!r} with non-boolean numeric dtype, got {index.dtype!r}"
+        )
     if index.ndim != 1:
         raise ValueError("only 1-dimensional indices are supported.")
 

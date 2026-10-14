@@ -28,6 +28,7 @@ NUMPY_DTYPES: Mapping[str, st.SearchStrategy[np.dtype]] = {
     "floating": hnp.floating_dtypes(sizes=(32, 64)),
     "complex": hnp.complex_number_dtypes(),
     "datetime": hnp.datetime64_dtypes(max_period="s"),
+    "string": hnp.unicode_string_dtypes(),
 }
 
 
@@ -403,6 +404,15 @@ class TestInferMidpointFreq:
 
 
 class TestIndexToInterval:
+    @hp.given(data=st.data())
+    def test_non_numeric_or_boolean_index_raises_type_error(
+        self, data: st.DataObject
+    ):
+        dtype = data.draw(index_dtypes(include=["boolean", "string"]))
+        index = data.draw(hpd.indexes(dtype=dtype))
+        with pt.raises(TypeError):
+            index_to_interval(index)
+
     @hp.given(
         closed=st.sampled_from(ClosedSide),
         label=st.sampled_from(LabelSide),
