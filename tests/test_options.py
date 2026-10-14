@@ -3,6 +3,8 @@ import pytest as pt
 import xarray_bounds as xb
 from xarray_bounds.options import OPTIONS
 
+default_options = xb.get_options()
+
 
 def test_unknown_option_raises():
     with pt.raises(ValueError):
@@ -10,6 +12,8 @@ def test_unknown_option_raises():
 
 
 def test_bounds_dim():
+    assert OPTIONS == default_options
+
     with pt.raises(ValueError):
         xb.set_options(bounds_dim=["unhashable", "mutable"])
 
@@ -22,6 +26,8 @@ def test_bounds_dim():
 
 
 def test_interval_closed():
+    assert OPTIONS == default_options
+
     with pt.raises(ValueError):
         xb.set_options(interval_closed="banana")
 
@@ -34,6 +40,8 @@ def test_interval_closed():
 
 
 def test_label_side():
+    assert OPTIONS == default_options
+
     with pt.raises(ValueError):
         xb.set_options(label_side="banana")
 
