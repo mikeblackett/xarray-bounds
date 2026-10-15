@@ -60,8 +60,19 @@
 
 ## DataArray
 
-The `bnds` accessor is not currently available for {py:class}`~xarray.DataArray` objects because it depends on developmental features of {py:mod}`xarray`. See <https://github.com/pydata/xarray/issues/1475> for more information.
-
 :::{important}
 The `bnds` accessor is not currently available for {py:class}`~xarray.DataArray` objects. See <https://github.com/pydata/xarray/issues/1475> for more information.
 :::
+
+## Utilities
+
+```{eval-rst}
+..  autosummary::
+    :toctree: generated/
+
+    ~xarray_bounds.utilities.infer_interval
+    ~xarray_bounds.utilities.datetime_to_interval
+    ~xarray_bounds.utilities.index_to_interval
+    ~xarray_bounds.utilities.infer_midpoint_freq
+
+```

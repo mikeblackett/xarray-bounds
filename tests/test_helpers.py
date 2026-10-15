@@ -4,7 +4,6 @@ import pytest as pt
 import xarray as xr
 from hypothesis import strategies as st
 
-import xarray_bounds as xrb
 from tests.constants import FREQ
 from xarray_bounds._helpers import (
     OffsetAlias,
@@ -15,11 +14,6 @@ from xarray_bounds._helpers import (
     validate_interval_label,
 )
 from xarray_bounds.types import ClosedSide, LabelSide, is_enum_member
-
-
-@pt.fixture(scope="class")
-def ds() -> xr.Dataset:
-    return xrb.datasets.simple_bounds
 
 
 class TestValidateIntervalLabel:

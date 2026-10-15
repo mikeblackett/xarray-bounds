@@ -7,20 +7,9 @@ import numpy as np
 import pytest as pt
 import xarray as xr
 
-import xarray_bounds as xrb
 from xarray_bounds.options import OPTIONS
 
 BOUNDS_NAME = OPTIONS["bounds_dim"]
-
-
-@pt.fixture(scope="class")
-def ds() -> xr.Dataset:
-    return xrb.datasets.simple_bounds
-
-
-@pt.fixture(scope="class")
-def ds_no_bounds() -> xr.Dataset:
-    return xrb.datasets.simple
 
 
 class TestDatasetBoundsAccessor:
@@ -76,7 +65,8 @@ class TestDatasetBoundsAccessor:
         assert expected in ds.bnds.coordinates[coordinate]
 
     @hp.given(value=st.one_of(st.text(), st.none(), st.integers()))
-    def test_get_default(self, ds: xr.Dataset, value: Any):
+    def test_get_default(self, value: Any):
+        ds = xr.Dataset()
         actual = ds.bnds.get("missing_key", default=value)
         assert actual == value
 
@@ -115,11 +105,11 @@ class TestDatasetBoundsAccessor:
         "key",
         [
             # cf axis
-            "T",
+            "Y",
             # dim name
             "lat",
             # standard_name
-            "longitude",
+            "latitude",
         ],
     )
     def test_infer_bounds_for_key(self, ds_no_bounds: xr.Dataset, key: str):
@@ -142,7 +132,7 @@ class TestDatasetBoundsAccessor:
         actual = list(ds_with_bounds.bnds.axes.keys())
         assert expected == actual
 
-    @hp.given(dim=st.sampled_from(["time", "T"]))
+    @pt.mark.parametrize("dim", ["time", "T"])
     def test_drops_bounds_for_specified_keys(self, ds: xr.Dataset, dim: str):
         assert dim in ds.bnds
         actual = ds.bnds.drop_bounds(dim)
@@ -179,7 +169,7 @@ class TestDatasetBoundsAccessor:
         assert "bounds" not in actual["lat"].attrs
         assert "bounds" not in actual["lat"].encoding
 
-    @hp.given(dim=st.sampled_from(["time", "T", "latitude", "Y", "lat"]))
+    @pt.mark.parametrize("dim", ["time", "T", "latitude", "Y", "lat"])
     def test_assign_bounds(
         self, ds: xr.Dataset, ds_no_bounds: xr.Dataset, dim: str
     ):
@@ -188,7 +178,7 @@ class TestDatasetBoundsAccessor:
         actual = ds_new.bnds[dim]
         np.testing.assert_array_equal(expected, actual)
 
-    @hp.given(dim=st.sampled_from(["time", "T", "latitude", "Y", "lat"]))
+    @pt.mark.parametrize("dim", ["time", "T", "latitude", "Y", "lat"])
     def test_assign_bounds_assigns_attribute(
         self, ds: xr.Dataset, ds_no_bounds: xr.Dataset, dim: str
     ):
