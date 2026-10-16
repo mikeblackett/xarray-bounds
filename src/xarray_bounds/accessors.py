@@ -160,17 +160,17 @@ class BoundsAccessor(Mapping[Hashable, xr.DataArray], Generic[T_Xarray]):
 
     @property
     def axes(self) -> dict[str, tuple[str, ...]]:
-        """Mapping of valid Axis standard names to bounds names."""
+        """Mapping of CF Axis names to bounds names."""
         return self._bounds_by_cf_key("axes")
 
     @property
     def standard_names(self) -> dict[str, tuple[str, ...]]:
-        """Mapping of standard names to bounds names."""
+        """Mapping of CF standard names to bounds names."""
         return self._bounds_by_cf_key("standard_names")
 
     @property
     def coordinates(self) -> dict[str, tuple[str, ...]]:
-        """Mapping of valid Coordinate standard names to bounds names."""
+        """Mapping of CF Coordinate names to bounds names."""
         return self._bounds_by_cf_key("coordinates")
 
     @property
@@ -197,16 +197,16 @@ class BoundsAccessor(Mapping[Hashable, xr.DataArray], Generic[T_Xarray]):
         closed: IntervalClosed | None = None,
         label: IntervalLabel | None = None,
     ) -> T_Xarray:
-        """Infer bounds for the specified coordinates and assign them to this object.
+        """Infer bounds for the specified variables and assign them to this object.
 
         Returns a new object with all the original data in addition to the new bounds.
 
         Parameters
         ----------
         *keys : str
-            Names of coordinates.
+            Names of coordiantes to infer bounds for.
             Can be any alias understood by :py:mod:`cf_xarray`.
-            If no keys are provided, bounds will be inferred for all available axes.
+            If no keys are provided, bounds will be inferred for all available CF axes.
         label : Literal['left', 'middle', 'right'], optional
             Which side or midpoint of the interval the index labels.
         closed : Literal['left', 'right'], optional
@@ -214,7 +214,7 @@ class BoundsAccessor(Mapping[Hashable, xr.DataArray], Generic[T_Xarray]):
 
         Returns
         -------
-        T
+        T_Xarray
             A new object with bounds variables added and appropriate attributes set.
 
         Raises
@@ -247,14 +247,11 @@ class BoundsAccessor(Mapping[Hashable, xr.DataArray], Generic[T_Xarray]):
         coords = {}
         # add bounds in the same order as thier axes
         ordered = [a for a in obj.cf.axes if a in axes]
-        print(list(obj.cf.axes.keys()))
         for axis in ordered:
-            print(axis)
             if axis in self.axes:
                 raise ValueError(f"bounds already exist for axis: {axis!r}")
             bounds = infer_bounds(obj=obj.cf[axis], closed=closed, label=label)
             coords.update({bounds.name: bounds})
-        print(list(coords.keys()))
         return obj.assign_coords(coords)
 
     def assign_bounds(

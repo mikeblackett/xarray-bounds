@@ -82,4 +82,4 @@ Contributions are encouraged! Please feel free to submit a Pull Request.
 
 ## Next steps
 
-Check out the [User guide](user_guide.ipynb).
+Check out the [User guide](user_guide).

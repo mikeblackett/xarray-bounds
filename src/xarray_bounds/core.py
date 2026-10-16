@@ -33,12 +33,12 @@ def infer_bounds(
     label: IntervalLabel | None = None,
     closed: IntervalClosed | None = None,
 ) -> xr.DataArray:
-    """Infer the bounds for a 1D variable.
+    """Infer the bounds for a 1D DataArray.
 
     Parameters
     ----------
     obj : DataArray
-        A 1-dimensional variable with a monotonic and regularly spaced index.
+        A 1-dimensional DataArray with a monotonic and regularly spaced index.
     label : Literal['left', 'middle', 'right'], optional
         Which side or midpoint of the interval the index labels.
         If None, defaults to the value of ``closed`` if provided, otherwise defaults to 'left'.
@@ -49,16 +49,16 @@ def infer_bounds(
     Returns
     -------
     DataArray
-        An variable with shape ``(n, 2)`` representing the bounds.
+        A DataArray with shape ``(n, 2)`` representing the bounds.
 
     Raises
     ------
     ValueError
-        If the variable is not 1D.
+        If the DataArray is not 1D.
     TypeError
-        If the variable does not have compatible index.
+        If the DataArray does not have compatible index.
     ValueError
-        If the index is not regularly spaced.
+        If the DataArray's index is not regularly spaced.
     """
     try:
         index = obj.to_index()
@@ -67,7 +67,7 @@ def infer_bounds(
 
     if index.name == OPTIONS["bounds_dim"]:
         raise ValueError(
-            f'"obj.name" cannot be the same as the vertex dimension: {OPTIONS["bounds_dim"]}'
+            f'"obj.name" cannot be the same as the bounds dimension: {OPTIONS["bounds_dim"]}'
         )
 
     obj = obj.copy()
@@ -105,7 +105,7 @@ def interval_to_bounds(
     dim: Hashable | None = None,
     name: Hashable | None = None,
 ) -> xr.DataArray:
-    """Convert a :py:class:`pandas.IntervalIndex` into a bounds variable.
+    """Return a bounds DataArray from a :py:class:`pandas.IntervalIndex`.
 
     Parameters
     ----------
@@ -124,7 +124,7 @@ def interval_to_bounds(
     Returns
     -------
     DataArray
-        A variable with shape ``(n, 2)``.
+        A DataArray with shape ``(n, 2)`` representing the bounds.
 
     Raises
     ------
@@ -183,17 +183,24 @@ def interval_to_bounds(
 
 
 def bounds_to_interval(obj: xr.DataArray) -> pd.IntervalIndex:
-    """Convert a 2D variable to a :py:class:`pandas.IntervalIndex`.
+    """Convert a 2D DataArray to a :py:class:`pandas.IntervalIndex`.
 
     Parameters
     ----------
     obj : DataArray
-        A 2-dimensional variable with size 2 along the second dimension.
+        A 2-dimensional DataArray with size 2 along the second dimension.
 
     Returns
     -------
     pd.IntervalIndex
-        A pandas interval index representing the bounds.
+        An interval index representing the bounds.
+
+    Raises
+    ------
+    ValueError
+        If the DataArray is not 2D.
+    ValueError
+        If the second dimension of the DataArray is not size 2.
     """
     if obj.ndim != 2:
         raise ValueError(

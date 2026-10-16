@@ -23,4 +23,4 @@ generated/
 coverage.xml
 .coverage
 
-*.ipynb
+*.ipynb_*

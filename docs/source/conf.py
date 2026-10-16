@@ -28,7 +28,7 @@ extensions = [
 
 # AutoDoc configuration
 autosummary_generate = True
-autodoc_typehints = "none"
+autodoc_typehints = "signature"
 
 # Napoleon configuration
 napoleon_google_docstring = False
@@ -54,7 +54,7 @@ html_context = {
     "github_user": "mikeblackett",
     "github_repo": "xarray-bounds",
     "github_version": "main",
-    "doc_path": "doc",
+    "doc_path": "docs",
 }
 templates_path = ["_templates"]
 
