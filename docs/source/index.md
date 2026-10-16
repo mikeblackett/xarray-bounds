@@ -69,7 +69,7 @@ import xarray as xr
 ds = xr.Dataset(coords={"y": ("y", [0, 1, 2])})
 
 # infer bounds for coordinate 'y' (labels at midpoint)
-ds2 = ds.bnds.infer_bounds("y", label="middle")
+ds2 = ds.bnds.add_bounds("y", label="middle")
 print(ds2.bnds["y"])
 ```
 

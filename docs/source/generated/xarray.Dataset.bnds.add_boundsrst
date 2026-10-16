@@ -1,0 +1,6 @@
+﻿xarray.Dataset.bnds.add\_bounds
+==============================
+
+.. currentmodule:: xarray
+
+.. automethod:: xarray.Dataset.bnds.add_bounds

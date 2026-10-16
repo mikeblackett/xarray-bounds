@@ -59,6 +59,15 @@ def infer_bounds(
         If the DataArray does not have compatible index.
     ValueError
         If the DataArray's index is not regularly spaced.
+
+    See Also
+    --------
+    xarray.Dataset.bnds.add_bounds :
+        Infer and add bounds for the CF axes of a Dataset.
+    xarray_bounds.interval_to_bounds :
+        Create a bounds DataArray from an existing pandas.IntervalIndex.
+    xarray_bounds.bounds_to_interval :
+        Convert a bounds DataArray back to a pandas.IntervalIndex.
     """
     try:
         index = obj.to_index()

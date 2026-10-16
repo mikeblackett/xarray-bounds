@@ -36,7 +36,7 @@
     :toctree: generated/
     :template: autosummary/accessor_method.rst
 
-    ~xarray.Dataset.bnds.infer_bounds
+    ~xarray.Dataset.bnds.add_bounds
     ~xarray.Dataset.bnds.assign_bounds
     ~xarray.Dataset.bnds.drop_bounds
 ```

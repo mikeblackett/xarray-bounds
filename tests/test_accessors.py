@@ -87,19 +87,19 @@ class TestDatasetBoundsAccessor:
         actual = len(ds.bnds)
         assert actual == expected
 
-    def test_infer_raises_if_no_cf_axes(self, ds: xr.Dataset):
+    def test_add_bounds_raises_if_no_cf_axes(self, ds: xr.Dataset):
         # should only auto-infer bounds for CF axes
         ds = ds.drop_attrs(deep=True)
         with pt.raises(ValueError, match="guess_coord_axis"):
-            ds.bnds.infer_bounds()
+            ds.bnds.add_bounds()
 
-    def test_infer_bounds_raises_if_invalid_key(self, ds: xr.Dataset):
+    def test_add_bounds_raises_if_invalid_key(self, ds: xr.Dataset):
         with pt.raises(KeyError):
-            ds.bnds.infer_bounds("foo")
+            ds.bnds.add_bounds("foo")
 
-    def test_infer_bounds_raises_for_existing_bounds(self, ds: xr.Dataset):
+    def test_add_bounds_raises_for_existing_bounds(self, ds: xr.Dataset):
         with pt.raises(ValueError, match="bounds already exist"):
-            ds.bnds.infer_bounds("time")
+            ds.bnds.add_bounds("time")
 
     @pt.mark.parametrize(
         "key",
@@ -112,23 +112,21 @@ class TestDatasetBoundsAccessor:
             "latitude",
         ],
     )
-    def test_infer_bounds_for_key(self, ds_no_bounds: xr.Dataset, key: str):
+    def test_add_bounds_for_key(self, ds_no_bounds: xr.Dataset, key: str):
         # Converting the data_var to dataset will drop existing bounds
-        actual = ds_no_bounds.bnds.infer_bounds(key)
+        actual = ds_no_bounds.bnds.add_bounds(key)
         assert key in actual.bnds
 
-    def test_infer_all_missing_bounds(self, ds_no_bounds: xr.Dataset):
+    def test_add_all_missing_bounds(self, ds_no_bounds: xr.Dataset):
         # Missing bounds should be added for all dimensions that represent a CF axis.
         missing = ["time", "lon", "lat"]
         assert not all(d in ds_no_bounds.bnds for d in missing)
-        actual = ds_no_bounds.bnds.infer_bounds()
+        actual = ds_no_bounds.bnds.add_bounds()
         assert all(d in actual.bnds for d in missing)
 
-    def test_infer_missing_bounds_in_axis_order(
-        self, ds_no_bounds: xr.Dataset
-    ):
+    def test_add_missing_bounds_in_axis_order(self, ds_no_bounds: xr.Dataset):
         expected = list(ds_no_bounds.cf.axes.keys())
-        ds_with_bounds = ds_no_bounds.bnds.infer_bounds()
+        ds_with_bounds = ds_no_bounds.bnds.add_bounds()
         actual = list(ds_with_bounds.bnds.axes.keys())
         assert expected == actual
 

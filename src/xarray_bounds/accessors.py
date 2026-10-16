@@ -31,7 +31,7 @@ class BoundsAccessor(Mapping[Hashable, xr.DataArray], Generic[T_Xarray]):
         """Initialize a new ``Bounds`` object.
 
         This initializer makes a shallow copy of ``obj`` for performance
-        reasons. Public accessor methods (`infer_bounds`, `assign_bounds`,
+        reasons. Public accessor methods (`add_bounds`, `assign_bounds`,
         `drop_bounds`) all explicitly create and return new copies and
         therefore preserve the non-mutating API.
 
@@ -191,20 +191,24 @@ class BoundsAccessor(Mapping[Hashable, xr.DataArray], Generic[T_Xarray]):
             if key in self._obj.cf.bounds
         }
 
-    def infer_bounds(
+    def add_bounds(
         self,
         *keys: str,
         closed: IntervalClosed | None = None,
         label: IntervalLabel | None = None,
     ) -> T_Xarray:
-        """Infer bounds for the specified variables and assign them to this object.
+        """Infer bounds for the specified variables and add them to this object.
 
-        Returns a new object with all the original data in addition to the new bounds.
+        Bounds are inferred from the coordinate indexes. To attach bounds
+        arrays you provide yourself, use :meth:`assign_bounds` instead.
+
+        Returns a new object with all the original data in addition to the
+        new bounds.
 
         Parameters
         ----------
         *keys : str
-            Names of coordiantes to infer bounds for.
+            Names of coordinates to infer bounds for.
             Can be any alias understood by :py:mod:`cf_xarray`.
             If no keys are provided, bounds will be inferred for all available CF axes.
         label : Literal['left', 'middle', 'right'], optional
@@ -231,6 +235,13 @@ class BoundsAccessor(Mapping[Hashable, xr.DataArray], Generic[T_Xarray]):
             If a regular frequency cannot be inferred from the coordinate index.
         ValueError
             If bounds already exist for a specified dimension.
+
+        See Also
+        --------
+        xarray.Dataset.bnds.assign_bounds :
+            Attach caller-provided bounds arrays instead of inferring them.
+        xarray_bounds.infer_bounds :
+            The DataArray-level inference function used by this method.
         """
         obj = self._obj.copy()
 
@@ -245,7 +256,7 @@ class BoundsAccessor(Mapping[Hashable, xr.DataArray], Generic[T_Xarray]):
             )
 
         coords = {}
-        # add bounds in the same order as thier axes
+        # add bounds in the same order as their axes
         ordered = [a for a in obj.cf.axes if a in axes]
         for axis in ordered:
             if axis in self.axes:
@@ -274,13 +285,20 @@ class BoundsAccessor(Mapping[Hashable, xr.DataArray], Generic[T_Xarray]):
 
         Returns
         -------
-        T
+        T_Xarray
             A new object with bounds variables added.
 
         Raises
         ------
         KeyError
             If the key is not found in the object.
+
+        See Also
+        --------
+        xarray.Dataset.bnds.add_bounds :
+            Infer bounds from the coordinate indexes instead.
+        xarray_bounds.interval_to_bounds :
+            Create a bounds DataArray from a pandas.IntervalIndex.
         """
         obj = self._obj.copy()
         kwargs = mapping_or_kwargs(
