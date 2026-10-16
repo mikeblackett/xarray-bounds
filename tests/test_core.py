@@ -9,18 +9,17 @@ import pytest as pt
 import xarray as xr
 import xarray.testing.strategies as xrst
 
+from xarray_bounds.constants import (
+    IntervalClosed,
+    IntervalLabel,
+)
 from xarray_bounds.core import (
     bounds_to_interval,
     infer_bounds,
     interval_to_bounds,
 )
 from xarray_bounds.options import OPTIONS, set_options
-from xarray_bounds.types import (
-    ClosedSide,
-    IntervalClosed,
-    IntervalLabel,
-    LabelSide,
-)
+from xarray_bounds.utilities import datetime_to_interval
 
 rng = np.random.default_rng(12345)
 
@@ -120,6 +119,42 @@ class TestInferBounds:
         coord = bounds.coords["time"]
         assert coord.attrs.get("bounds") == bounds.name
 
+    def test_datetime_end_aligned_defaults_to_right(self):
+        # Regression test: end-aligned frequencies (e.g. ME) must default
+        # to right labels, so the bounds end on the index values.
+        index = pd.date_range("2000-01-31", periods=3, freq="ME")
+        da = xr.DataArray(data=index, dims="time")
+        bounds = infer_bounds(da)
+        expected = datetime_to_interval(index)
+        actual = bounds_to_interval(bounds)
+        np.testing.assert_array_equal(actual, expected)
+        np.testing.assert_array_equal(actual.right, index)
+        assert bounds.attrs["closed"] == "right"
+
+    def test_datetime_start_aligned_defaults_to_left(self):
+        index = pd.date_range("2000-01-01", periods=3, freq="MS")
+        da = xr.DataArray(data=index, dims="time")
+        bounds = infer_bounds(da)
+        expected = datetime_to_interval(index)
+        actual = bounds_to_interval(bounds)
+        np.testing.assert_array_equal(actual, expected)
+        np.testing.assert_array_equal(actual.left, index)
+        assert bounds.attrs["closed"] == "left"
+
+    @pt.mark.parametrize("label", IntervalLabel)
+    def test_label_without_closed_does_not_raise(self, label: IntervalLabel):
+        # `closed` is independent of `label`; omitting it must not raise,
+        # even when `label='middle'` is not a valid closed side.
+        index = pd.date_range("2000-01-01", periods=4, freq="D")
+        da = xr.DataArray(data=index, dims="time")
+        bounds = infer_bounds(da, label=label)
+        assert bounds.attrs["closed"] == "left"
+
+    def test_invalid_label_raises_value_error(self):
+        da = xr.DataArray(data=range(3), dims="x")
+        with pt.raises(ValueError):
+            infer_bounds(da, label="bogus")  # type: ignore
+
 
 class TestIntervalToBounds:
     @hp.given(closed=st.sampled_from(["both", "neither"]))
@@ -212,10 +247,10 @@ class TestIntervalToBounds:
 
             assert bounds.name == expected
 
-    @hp.given(closed=st.sampled_from(ClosedSide))
+    @hp.given(closed=st.sampled_from(IntervalClosed))
     def test_adds_closed_attribute(self, closed: IntervalClosed):
         interval = pd.interval_range(
-            0, 10, periods=5, closed=closed, name="test"
+            0, 10, periods=5, closed=closed.value, name="test"
         )
 
         bounds = interval_to_bounds(interval)
@@ -264,6 +299,13 @@ class TestIntervalToBounds:
 
 
 class TestBoundsToInterval:
+    def test_missing_closed_attribute_defaults_to_left(self):
+        da = xr.DataArray(data=range(3), dims="x")
+        bounds = infer_bounds(da)
+        del bounds.attrs["closed"]
+        interval = bounds_to_interval(bounds)
+        assert interval.closed == "left"
+
     def test_raises_if_not_2d(self):
         da = xr.DataArray.from_dict({"dims": "time", "data": range(10)})
         with pt.raises(ValueError, match="2-dimensional"):
@@ -278,8 +320,8 @@ class TestBoundsToInterval:
 
     @hp.given(
         index=hpd.range_indexes(min_size=3),
-        closed=st.sampled_from(ClosedSide),
-        label=st.sampled_from(LabelSide),
+        closed=st.sampled_from(IntervalClosed),
+        label=st.sampled_from(IntervalLabel),
     )
     def test_interval_index_correctness(
         self, index: pd.Index, closed: IntervalClosed, label: IntervalLabel

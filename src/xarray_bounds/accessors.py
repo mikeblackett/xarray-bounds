@@ -11,9 +11,9 @@ from xarray_bounds._helpers import (
     resolve_axis_name,
     resolve_variable_name,
 )
+from xarray_bounds.constants import IntervalClosed, IntervalLabel
 from xarray_bounds.core import infer_bounds
 from xarray_bounds.options import OPTIONS
-from xarray_bounds.types import IntervalClosed, IntervalLabel
 
 __all__ = ["DataArrayBoundsAccessor", "DatasetBoundsAccessor"]
 

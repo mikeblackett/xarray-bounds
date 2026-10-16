@@ -11,7 +11,7 @@ import pytest as pt
 import pytest_mock as mk
 
 from tests.constants import FREQ, FREQ_END, FREQ_START
-from xarray_bounds.types import ClosedSide, LabelSide
+from xarray_bounds.constants import IntervalClosed, IntervalLabel
 from xarray_bounds.utilities import (
     _flip_closed,
     _flip_label,
@@ -106,7 +106,7 @@ class TestDatetimeToInterval:
 
     @hp.given(
         label=st.sampled_from(["left", "right"]),
-        closed=st.sampled_from(ClosedSide),
+        closed=st.sampled_from(IntervalClosed),
         start=st.integers(min_value=1890, max_value=2050),
         periods=st.integers(min_value=3, max_value=10),
         freq=st.sampled_from(FREQ),
@@ -116,8 +116,8 @@ class TestDatetimeToInterval:
         start: int,
         periods: int,
         freq: str,
-        closed: ClosedSide,
-        label: LabelSide,
+        closed: IntervalClosed,
+        label: IntervalLabel,
     ) -> None:
         expected = pd.interval_range(
             start=pd.Timestamp(str(start)),
@@ -140,7 +140,7 @@ class TestDatetimeToInterval:
         periods: int,
         freq: str,
     ) -> None:
-        closed = ClosedSide.LEFT
+        closed = IntervalClosed.LEFT
         expected = pd.interval_range(
             start=pd.Timestamp(str(start)),
             periods=periods,
@@ -149,7 +149,7 @@ class TestDatetimeToInterval:
         )
         index = pd.to_datetime(expected.mid)
         actual = datetime_to_interval(
-            index=index, label=LabelSide.MIDDLE, closed=closed
+            index=index, label=IntervalLabel.MIDDLE, closed=closed
         )
         np.testing.assert_array_equal(actual=actual, desired=expected)
 
@@ -164,7 +164,7 @@ class TestDatetimeToInterval:
         periods: int,
         freq: str,
     ) -> None:
-        closed = ClosedSide.RIGHT
+        closed = IntervalClosed.RIGHT
         expected = pd.interval_range(
             start=pd.Timestamp(str(start)),
             periods=periods,
@@ -173,7 +173,7 @@ class TestDatetimeToInterval:
         )
         index = pd.to_datetime(expected.mid)
         actual = datetime_to_interval(
-            index=index, label=LabelSide.MIDDLE, closed=closed
+            index=index, label=IntervalLabel.MIDDLE, closed=closed
         )
         np.testing.assert_array_equal(actual=actual, desired=expected)
 
@@ -192,25 +192,29 @@ class TestDatetimeToInterval:
         start=st.integers(min_value=1890, max_value=2050),
         periods=st.integers(min_value=3, max_value=10),
         freq=st.sampled_from(FREQ),
-        closed=st.sampled_from(ClosedSide),
-        label=st.sampled_from([LabelSide.LEFT, LabelSide.RIGHT]),
+        closed=st.sampled_from(IntervalClosed),
+        label=st.sampled_from([IntervalLabel.LEFT, IntervalLabel.RIGHT]),
     )
     def test_decreasing_regularly_spaced_index_is_converted(
         self,
         start: int,
         periods: int,
         freq: str,
-        closed: ClosedSide,
-        label: LabelSide,
+        closed: IntervalClosed,
+        label: IntervalLabel,
     ) -> None:
         # A decreasing index should produce the mirror image of the
         # increasing case: the same intervals in reverse order, with the
         # closed side flipped.
         closed_flipped = (
-            ClosedSide.RIGHT if closed is ClosedSide.LEFT else ClosedSide.LEFT
+            IntervalClosed.RIGHT
+            if closed is IntervalClosed.LEFT
+            else IntervalClosed.LEFT
         )
         label_flipped = (
-            LabelSide.RIGHT if label is LabelSide.LEFT else LabelSide.LEFT
+            IntervalLabel.RIGHT
+            if label is IntervalLabel.LEFT
+            else IntervalLabel.LEFT
         )
         expected = pd.interval_range(
             start=pd.Timestamp(str(start)),
@@ -234,17 +238,17 @@ class TestDatetimeToInterval:
         periods: int,
         freq: str,
     ) -> None:
-        closed = ClosedSide.RIGHT
+        closed = IntervalClosed.RIGHT
         expected = pd.interval_range(
             start=pd.Timestamp(str(start)),
             periods=periods,
             freq=freq,
-            closed=ClosedSide.LEFT.value,
+            closed=IntervalClosed.LEFT.value,
         )
         expected = pd.IntervalIndex(expected.to_list()[::-1])
         index = pd.to_datetime(expected.mid)
         actual = datetime_to_interval(
-            index=index, label=LabelSide.MIDDLE, closed=closed
+            index=index, label=IntervalLabel.MIDDLE, closed=closed
         )
         np.testing.assert_array_equal(actual=actual, desired=expected)
 
@@ -259,17 +263,17 @@ class TestDatetimeToInterval:
         periods: int,
         freq: str,
     ) -> None:
-        closed = ClosedSide.LEFT
+        closed = IntervalClosed.LEFT
         expected = pd.interval_range(
             start=pd.Timestamp(str(start)),
             periods=periods,
             freq=freq,
-            closed=ClosedSide.RIGHT.value,
+            closed=IntervalClosed.RIGHT.value,
         )
         expected = pd.IntervalIndex(expected.to_list()[::-1])
         index = pd.to_datetime(expected.mid)
         actual = datetime_to_interval(
-            index=index, label=LabelSide.MIDDLE, closed=closed
+            index=index, label=IntervalLabel.MIDDLE, closed=closed
         )
         np.testing.assert_array_equal(actual=actual, desired=expected)
 
@@ -280,12 +284,12 @@ class TestDatetimeToInterval:
             start=pd.Timestamp("2000-01-01"),
             periods=4,
             freq="ME",
-            closed=ClosedSide.RIGHT.value,
+            closed=IntervalClosed.RIGHT.value,
         )
         expected = pd.IntervalIndex(expected.to_list()[::-1])
         index = pd.to_datetime(expected.mid)
         actual = datetime_to_interval(
-            index=index, label=LabelSide.MIDDLE, closed=ClosedSide.LEFT
+            index=index, label=IntervalLabel.MIDDLE, closed=IntervalClosed.LEFT
         )
         np.testing.assert_array_equal(actual=actual, desired=expected)
 
@@ -295,12 +299,16 @@ class TestDatetimeToInterval:
         # two mirrored ``closed`` sides is not reliably inferrable (a
         # pre-existing limitation, covered by the midpoint roundtrip tests
         # above).
-        label=st.sampled_from([LabelSide.LEFT, LabelSide.RIGHT]),
-        closed=st.sampled_from(ClosedSide),
+        label=st.sampled_from([IntervalLabel.LEFT, IntervalLabel.RIGHT]),
+        closed=st.sampled_from(IntervalClosed),
         periods=st.integers(min_value=4, max_value=8),
     )
     def test_decreasing_index_is_mirror_of_increasing(
-        self, freq: str, label: LabelSide, closed: ClosedSide, periods: int
+        self,
+        freq: str,
+        label: IntervalLabel,
+        closed: IntervalClosed,
+        periods: int,
     ) -> None:
         expected = pd.interval_range(
             start=pd.Timestamp("2000-01-01"),
@@ -363,8 +371,8 @@ class TestInferMidpointFreq:
     def test_frequency_is_inferred(self, data: st.DataObject):
         start = data.draw(st.integers(min_value=1890, max_value=2050))
         periods = data.draw(st.integers(min_value=5, max_value=10))
-        closed = data.draw(st.sampled_from(ClosedSide))
-        freqs = FREQ_START if closed == ClosedSide.LEFT else FREQ_END
+        closed = data.draw(st.sampled_from(IntervalClosed))
+        freqs = FREQ_START if closed == IntervalClosed.LEFT else FREQ_END
         freq = data.draw(st.sampled_from(freqs))
 
         index = pd.date_range(start=str(start), periods=periods, freq=freq)
@@ -399,8 +407,13 @@ class TestInferMidpointFreq:
         )
         increasing = pd.to_datetime(expected.mid)
         decreasing = increasing[::-1]
-        assert infer_midpoint_freq(increasing, closed=ClosedSide.RIGHT) == "ME"
-        assert infer_midpoint_freq(decreasing, closed=ClosedSide.LEFT) == "ME"
+        assert (
+            infer_midpoint_freq(increasing, closed=IntervalClosed.RIGHT)
+            == "ME"
+        )
+        assert (
+            infer_midpoint_freq(decreasing, closed=IntervalClosed.LEFT) == "ME"
+        )
 
 
 class TestIndexToInterval:
@@ -414,12 +427,12 @@ class TestIndexToInterval:
             index_to_interval(index)
 
     @hp.given(
-        closed=st.sampled_from(ClosedSide),
-        label=st.sampled_from(LabelSide),
+        closed=st.sampled_from(IntervalClosed),
+        label=st.sampled_from(IntervalLabel),
         name=st.text(),
     )
     def test_short_index_raises_value_error(
-        self, closed: ClosedSide, label: LabelSide, name: str
+        self, closed: IntervalClosed, label: IntervalLabel, name: str
     ):
         index = pd.Index([1])
         with pt.raises(ValueError):
@@ -428,12 +441,12 @@ class TestIndexToInterval:
             )
 
     @hp.given(
-        closed=st.sampled_from(ClosedSide),
-        label=st.sampled_from(LabelSide),
+        closed=st.sampled_from(IntervalClosed),
+        label=st.sampled_from(IntervalLabel),
         name=st.text(),
     )
     def test_non_monotonic_index_raises_value_error(
-        self, closed: ClosedSide, label: LabelSide, name: str
+        self, closed: IntervalClosed, label: IntervalLabel, name: str
     ):
         index = pd.Index([3, 1, 2])
         with pt.raises(ValueError):
@@ -442,12 +455,12 @@ class TestIndexToInterval:
             )
 
     @hp.given(
-        closed=st.sampled_from(ClosedSide),
-        label=st.sampled_from(LabelSide),
+        closed=st.sampled_from(IntervalClosed),
+        label=st.sampled_from(IntervalLabel),
         name=st.text(),
     )
     def test_irregularly_spaced_index_raises_value_error(
-        self, closed: ClosedSide, label: LabelSide, name: str
+        self, closed: IntervalClosed, label: IntervalLabel, name: str
     ):
         index = pd.Index([1, 2, 4, 9])
         with pt.raises(ValueError):
@@ -459,8 +472,8 @@ class TestIndexToInterval:
         start=st.integers(min_value=-10, max_value=10),
         periods=st.integers(min_value=3, max_value=10),
         step=st.integers(min_value=1, max_value=3),
-        closed=st.sampled_from(ClosedSide),
-        label=st.sampled_from(LabelSide),
+        closed=st.sampled_from(IntervalClosed),
+        label=st.sampled_from(IntervalLabel),
         name=st.text(),
     )
     def test_increasing_index_roundtrips(
@@ -468,8 +481,8 @@ class TestIndexToInterval:
         start: int,
         periods: int,
         step: int,
-        closed: ClosedSide,
-        label: LabelSide,
+        closed: IntervalClosed,
+        label: IntervalLabel,
         name: str,
     ):
         expected = pd.interval_range(
@@ -477,7 +490,7 @@ class TestIndexToInterval:
         )
 
         index = getattr(
-            expected, "mid" if label == LabelSide.MIDDLE else label
+            expected, "mid" if label == IntervalLabel.MIDDLE else label
         )
 
         actual = index_to_interval(
@@ -489,8 +502,8 @@ class TestIndexToInterval:
         start=st.integers(min_value=-10, max_value=10),
         periods=st.integers(min_value=3, max_value=10),
         step=st.integers(min_value=1, max_value=3),
-        closed=st.sampled_from(ClosedSide),
-        label=st.sampled_from(LabelSide),
+        closed=st.sampled_from(IntervalClosed),
+        label=st.sampled_from(IntervalLabel),
         name=st.text(),
     )
     def test_decreasing_index_roundtrips(
@@ -498,19 +511,21 @@ class TestIndexToInterval:
         start: int,
         periods: int,
         step: int,
-        closed: ClosedSide,
-        label: LabelSide,
+        closed: IntervalClosed,
+        label: IntervalLabel,
         name: str,
     ):
         closed_flipped = (
-            ClosedSide.LEFT if closed == ClosedSide.RIGHT else ClosedSide.RIGHT
+            IntervalClosed.LEFT
+            if closed == IntervalClosed.RIGHT
+            else IntervalClosed.RIGHT
         )
         label_flipped = (
-            LabelSide.LEFT
-            if label == LabelSide.RIGHT
-            else LabelSide.RIGHT
-            if label == LabelSide.LEFT
-            else LabelSide.MIDDLE
+            IntervalLabel.LEFT
+            if label == IntervalLabel.RIGHT
+            else IntervalLabel.RIGHT
+            if label == IntervalLabel.LEFT
+            else IntervalLabel.MIDDLE
         )
         expected = pd.interval_range(
             start=start,
@@ -522,7 +537,7 @@ class TestIndexToInterval:
 
         index = getattr(
             expected,
-            "mid" if label_flipped == LabelSide.MIDDLE else label_flipped,
+            "mid" if label_flipped == IntervalLabel.MIDDLE else label_flipped,
         )
 
         actual = index_to_interval(

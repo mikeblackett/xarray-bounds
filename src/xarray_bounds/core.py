@@ -6,18 +6,11 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from xarray_bounds._helpers import (
-    validate_interval_closed,
-    validate_interval_label,
-)
-from xarray_bounds.options import OPTIONS
-from xarray_bounds.types import (
-    ClosedSide,
+from xarray_bounds.constants import (
     IntervalClosed,
     IntervalLabel,
-    LabelSide,
-    is_enum_member,
 )
+from xarray_bounds.options import OPTIONS
 from xarray_bounds.utilities import infer_interval
 
 __all__ = [
@@ -41,10 +34,12 @@ def infer_bounds(
         A 1-dimensional DataArray with a monotonic and regularly spaced index.
     label : Literal['left', 'middle', 'right'], optional
         Which side or midpoint of the interval the index labels.
-        If None, defaults to the value of ``closed`` if provided, otherwise defaults to 'left'.
+        If None, a suitable default is chosen based on the index type:
+        end-aligned datetime frequencies (e.g. ``ME``) default to 'right',
+        all other cases default to 'left'.
     closed : Literal['left', 'right'], optional
         The closed side of the interval.
-        If None, defaults to the value of ``label`` if provided, otherwise defaults to 'left'.
+        If None, defaults are chosen as for ``label``.
 
     Returns
     -------
@@ -81,14 +76,7 @@ def infer_bounds(
 
     obj = obj.copy()
 
-    label = validate_interval_label(label=label, default=closed)
-    closed = validate_interval_closed(closed=closed, default=label)
-
-    interval = infer_interval(
-        index=index,
-        label=LabelSide(label),
-        closed=ClosedSide(closed),
-    )
+    interval = infer_interval(index=index, label=label, closed=closed)
 
     data = np.stack(arrays=(interval.left, interval.right), axis=1)
 
@@ -144,12 +132,6 @@ def interval_to_bounds(
     ValueError
         If the interval has no name and no dimension name is provided.
     """
-    if not is_enum_member(ClosedSide, interval.closed):
-        raise ValueError(
-            f"IntervalIndex has unsupported closed attribute: {interval.closed}. "
-            f"Must be one of {list(ClosedSide)}."
-        )
-
     dim = dim or interval.name
 
     if dim is None:
@@ -166,7 +148,7 @@ def interval_to_bounds(
             f" the dimension name can't be the same as the bounds dimension ({OPTIONS['bounds_dim']})."
         )
 
-    label = validate_interval_label(label=label, default=interval.closed)
+    label = label or IntervalLabel(interval.closed)
 
     bounds = f"{name}_{OPTIONS['bounds_dim']}"
 
@@ -193,6 +175,8 @@ def interval_to_bounds(
 
 def bounds_to_interval(obj: xr.DataArray) -> pd.IntervalIndex:
     """Convert a 2D DataArray to a :py:class:`pandas.IntervalIndex`.
+
+    If the ``closed`` attribute is not present on ``obj``, ``left`` is assumed.
 
     Parameters
     ----------
@@ -221,7 +205,7 @@ def bounds_to_interval(obj: xr.DataArray) -> pd.IntervalIndex:
             f"second dimension of obj must have size 2, got size {size}."
         )
 
-    closed = ClosedSide(obj.attrs.get("closed", OPTIONS["interval_closed"]))
+    closed = IntervalClosed(obj.attrs.get("closed", "left"))
     dim = obj.dims[0]
 
     return pd.IntervalIndex.from_arrays(

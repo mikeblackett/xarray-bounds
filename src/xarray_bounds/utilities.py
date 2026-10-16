@@ -16,7 +16,10 @@ import pandas as pd
 import pandas.api.types as ptypes
 
 from xarray_bounds._helpers import OffsetAlias
-from xarray_bounds.types import ClosedSide, LabelSide
+from xarray_bounds.constants import (
+    IntervalClosed,
+    IntervalLabel,
+)
 
 __all__ = [
     "datetime_to_interval",
@@ -26,31 +29,39 @@ __all__ = [
 ]
 
 
-def _flip_label(label: LabelSide | None) -> LabelSide | None:
+def _flip_label(label: IntervalLabel | None) -> IntervalLabel | None:
     """Return the label for the opposite side of the interval.
 
-    ``None`` and ``LabelSide.MIDDLE`` are returned unchanged.
+    ``None`` and ``IntervalLabel.MIDDLE`` are returned unchanged.
     """
-    if label is None or label is LabelSide.MIDDLE:
+    if label is None or label is IntervalLabel.MIDDLE:
         return label
-    return LabelSide.RIGHT if label is LabelSide.LEFT else LabelSide.LEFT
+    return (
+        IntervalLabel.RIGHT
+        if label is IntervalLabel.LEFT
+        else IntervalLabel.LEFT
+    )
 
 
-def _flip_closed(closed: ClosedSide | None) -> ClosedSide | None:
+def _flip_closed(closed: IntervalClosed | None) -> IntervalClosed | None:
     """Return the closed side for the opposite side of the interval.
 
     ``None`` is returned unchanged.
     """
     if closed is None:
         return closed
-    return ClosedSide.RIGHT if closed is ClosedSide.LEFT else ClosedSide.LEFT
+    return (
+        IntervalClosed.RIGHT
+        if closed is IntervalClosed.LEFT
+        else IntervalClosed.LEFT
+    )
 
 
 def infer_interval(
     index: pd.Index,
     *,
-    label: LabelSide = LabelSide.LEFT,
-    closed: ClosedSide = ClosedSide.LEFT,
+    label: IntervalLabel | None = None,
+    closed: IntervalClosed | None = None,
     name: Hashable | None = None,
     normalize: bool = False,
 ) -> pd.IntervalIndex:
@@ -65,8 +76,10 @@ def infer_interval(
         The index to infer bounds for.
     label : Literal['left', 'middle', 'right'] | None, optional
         Which bin edge or midpoint the index labels.
+        If None, a suitable default is chosen by the underlying implementation.
     closed : Literal['left', 'right'] | None, optional
         The closed side of the interval.
+        If None, a suitable default is chosen by the underlying implementation.
     name : Hashable | None, optional
         The name of the interval index. If None, the name of the index is used.
     normalize : bool, optional
@@ -97,8 +110,8 @@ def infer_interval(
 def datetime_to_interval(
     index: pd.DatetimeIndex,
     *,
-    label: LabelSide | None = None,
-    closed: ClosedSide | None = None,
+    label: IntervalLabel | None = None,
+    closed: IntervalClosed | None = None,
     name: Hashable | None = None,
     normalize: bool = False,
 ) -> pd.IntervalIndex:
@@ -157,6 +170,13 @@ def datetime_to_interval(
             f"expected a {pd.DatetimeIndex!r}, got {type(index)!r}"
         )
 
+    label_side: IntervalLabel | None = (
+        IntervalLabel(label) if label is not None else None
+    )
+    closed_side: IntervalClosed | None = (
+        IntervalClosed(closed) if closed is not None else None
+    )
+
     if index.is_monotonic_decreasing and not index.is_monotonic_increasing:
         # Mirror to the increasing case (the same convention as
         # ``index_to_interval``): reverse the index and the label/closed
@@ -165,15 +185,15 @@ def datetime_to_interval(
         # directions, so they are excluded here.
         result = datetime_to_interval(
             index[::-1],
-            label=_flip_label(label),
-            closed=_flip_closed(closed),
+            label=_flip_label(label_side),
+            closed=_flip_closed(closed_side),
             name=name,
             normalize=normalize,
         )
         return result[::-1]
 
-    if label == LabelSide.MIDDLE:
-        freq = infer_midpoint_freq(index, closed)
+    if label_side == IntervalLabel.MIDDLE:
+        freq = infer_midpoint_freq(index, closed_side)
     else:
         freq = pd.infer_freq(index)
 
@@ -189,21 +209,27 @@ def datetime_to_interval(
         )
 
     alias = OffsetAlias.from_freq(offset)
-    if label is None:
-        label = LabelSide.RIGHT if alias.is_end_aligned else LabelSide.LEFT
+    if label_side is None:
+        label_side = (
+            IntervalLabel.RIGHT if alias.is_end_aligned else IntervalLabel.LEFT
+        )
 
-    if closed is None:
-        closed = ClosedSide.RIGHT if alias.is_end_aligned else ClosedSide.LEFT
+    if closed_side is None:
+        closed_side = (
+            IntervalClosed.RIGHT
+            if alias.is_end_aligned
+            else IntervalClosed.LEFT
+        )
 
-    match label:
-        case LabelSide.LEFT:
+    match label_side:
+        case IntervalLabel.LEFT:
             left = index
-        case LabelSide.MIDDLE:
+        case IntervalLabel.MIDDLE:
             left = _left_from_midpoint(index, offset)
-        case LabelSide.RIGHT:
+        case IntervalLabel.RIGHT:
             left = index - offset
         case _:
-            assert_never(label)
+            assert_never(label_side)
 
     right = left + offset
 
@@ -214,15 +240,15 @@ def datetime_to_interval(
     return pd.IntervalIndex.from_arrays(
         left=left,
         right=right,
-        closed=str(closed),  # type: ignore[arg-type]
+        closed=str(closed_side),  # type: ignore[arg-type]
         name=name or index.name,
     )
 
 
 def index_to_interval(
     index: pd.Index,
-    label: LabelSide = LabelSide.LEFT,
-    closed: ClosedSide = ClosedSide.LEFT,
+    label: IntervalLabel | None = None,
+    closed: IntervalClosed | None = None,
     name: Hashable | None = None,
 ) -> pd.IntervalIndex:
     """Return an interval index representing the bounds of an index.
@@ -276,27 +302,36 @@ def index_to_interval(
         raise ValueError("index must be uniformly spaced.")
     step = diffs[0]
 
-    match label:
-        case LabelSide.LEFT:
+    label_side = (
+        IntervalLabel(label) if label is not None else IntervalLabel.LEFT
+    )
+    closed_side = (
+        IntervalClosed(closed) if closed is not None else IntervalClosed.LEFT
+    )
+
+    match label_side:
+        case IntervalLabel.LEFT:
             breaks = np.append(arr=index, values=index[-1] + step)
-        case LabelSide.RIGHT:
+        case IntervalLabel.RIGHT:
             breaks = np.insert(arr=index, obj=0, values=index[0] - step)
-        case LabelSide.MIDDLE:
+        case IntervalLabel.MIDDLE:
             breaks = np.concatenate(
                 [[index[0] - step / 2], index.to_numpy() + step / 2]
             )
         case _:  # pragma: no cover
-            assert_never(label)
+            assert_never(label_side)
 
     if index.is_monotonic_decreasing:
         breaks = breaks[::-1]
-        closed = (
-            ClosedSide.RIGHT if closed == ClosedSide.LEFT else ClosedSide.LEFT
+        closed_side = (
+            IntervalClosed.RIGHT
+            if closed_side == IntervalClosed.LEFT
+            else IntervalClosed.LEFT
         )
 
     interval = pd.IntervalIndex.from_breaks(
         breaks=breaks,
-        closed=closed.value,
+        closed=closed_side.value,
         name=name or index.name,
     )
 
@@ -307,7 +342,7 @@ def index_to_interval(
 
 def infer_midpoint_freq(
     index: pd.DatetimeIndex,
-    closed: ClosedSide | None = None,
+    closed: IntervalClosed | None = None,
 ) -> str | None:
     """Infer the frequency of a datetime index by comparing the differences
     between consecutive elements.

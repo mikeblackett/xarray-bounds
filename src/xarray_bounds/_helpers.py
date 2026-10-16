@@ -13,34 +13,6 @@ from typing import Any, Literal, TypeVar, cast
 import pandas as pd
 import xarray as xr
 
-from xarray_bounds.options import OPTIONS
-from xarray_bounds.types import (
-    ClosedSide,
-    IntervalClosed,
-    IntervalLabel,
-    LabelSide,
-)
-
-
-def validate_interval_label(
-    label: str | None, default: str | None = None
-) -> IntervalLabel:
-    if label is not None:
-        return LabelSide(label).value
-    if label is None and default is None:
-        return OPTIONS["label_side"].value
-    return LabelSide(default).value
-
-
-def validate_interval_closed(
-    closed: str | None, default: str | None = None
-) -> IntervalClosed:
-    if closed is not None:
-        return ClosedSide(closed).value
-    if closed is None and default is None:
-        return OPTIONS["interval_closed"].value
-    return ClosedSide(default).value
-
 
 def resolve_variable_name(
     obj: xr.Dataset | xr.DataArray, key: Hashable

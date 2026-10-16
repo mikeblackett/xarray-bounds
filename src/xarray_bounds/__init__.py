@@ -16,6 +16,7 @@ from xarray_bounds.accessors import (
     DataArrayBoundsAccessor,
     DatasetBoundsAccessor,
 )
+from xarray_bounds.constants import IntervalClosed, IntervalLabel
 from xarray_bounds.core import (
     bounds_to_interval,
     infer_bounds,
@@ -28,6 +29,8 @@ __version__ = version("xarray_bounds")
 __all__ = [
     "DataArrayBoundsAccessor",
     "DatasetBoundsAccessor",
+    "IntervalClosed",
+    "IntervalLabel",
     "__version__",
     "bounds_to_interval",
     "datasets",
