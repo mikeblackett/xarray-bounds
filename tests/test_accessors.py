@@ -167,6 +167,36 @@ class TestDatasetBoundsAccessor:
         assert "bounds" not in actual["lat"].attrs
         assert "bounds" not in actual["lat"].encoding
 
+    def test_drop_bounds_cleans_dangling_attribute(self, ds: xr.Dataset):
+        # resampling drops the bounds variables, but the `bounds` attribute
+        # on the new time coordinate survives
+        out = ds.resample(time="2D").mean()
+        assert f"time_{BOUNDS_NAME}" not in out.variables
+        assert out.time.attrs.get("bounds") == f"time_{BOUNDS_NAME}"
+        actual = out.bnds.drop_bounds()
+        assert "bounds" not in actual.time.attrs
+        assert len(actual.bnds) == 0
+
+    def test_drop_bounds_for_key_cleans_dangling_attribute(
+        self, ds: xr.Dataset
+    ):
+        out = ds.resample(time="2D").mean()
+        assert f"time_{BOUNDS_NAME}" not in out.variables
+        actual = out.bnds.drop_bounds("time")
+        assert "bounds" not in actual.time.attrs
+        # other bounds are untouched
+        assert "lat" in actual.bnds
+        assert "lon" in actual.bnds
+
+    def test_drop_bounds_cleans_dangling_encoding(self, ds: xr.Dataset):
+        out = ds.resample(time="2D").mean()
+        # move the dangling reference from attrs to encoding
+        del out.time.attrs["bounds"]
+        out["time"].encoding["bounds"] = f"time_{BOUNDS_NAME}"  # type: ignore[attr-defined]
+        actual = out.bnds.drop_bounds("time")
+        assert "bounds" not in actual.time.attrs
+        assert "bounds" not in actual["time"].encoding
+
     @pt.mark.parametrize("dim", ["time", "T", "latitude", "Y", "lat"])
     def test_assign_bounds(
         self, ds: xr.Dataset, ds_no_bounds: xr.Dataset, dim: str

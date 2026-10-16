@@ -159,6 +159,23 @@ class BoundsAccessor(Mapping[Hashable, xr.DataArray], Generic[T_Xarray]):
         }
 
     @property
+    def _dangling_bounds_vars(self) -> set[Hashable]:
+        """Variables whose ``bounds`` attribute references a missing variable.
+
+        Operations such as resampling can drop a bounds variable while the
+        ``bounds`` attribute on the coordinate survives, since xarray does
+        not enforce referential integrity on attributes.
+        """
+        result: set[Hashable] = set()
+        for name, variable in self._obj.variables.items():
+            for source in (variable.attrs, variable.encoding):
+                target = source.get("bounds")
+                if target is not None and target not in self._obj.variables:
+                    result.add(name)
+                    break
+        return result
+
+    @property
     def axes(self) -> dict[str, tuple[str, ...]]:
         """Mapping of CF Axis names to bounds names."""
         return self._bounds_by_cf_key("axes")
@@ -314,17 +331,21 @@ class BoundsAccessor(Mapping[Hashable, xr.DataArray], Generic[T_Xarray]):
     def drop_bounds(self, *keys: str) -> T_Xarray:
         """Drop bounds variables for the specified coordinates.
 
-        Returns a new object with the specified bounds variables and associated metadata removed.
+        Returns a new object with the specified bounds variables and
+        associated metadata removed. ``bounds`` attributes that reference a
+        variable which no longer exists (for example after an operation that
+        drops the bounds variable) are also removed.
 
         Parameters
         ----------
         *keys : str
             Names of variables whose bounds to drop.
             The names can be any alias understood by :py:mod:`cf_xarray`.
+            If no keys are provided, all bounds are dropped.
 
         Returns
         -------
-        T
+        T_Xarray
             A new object with bounds variables removed.
 
         Raises
@@ -335,19 +356,26 @@ class BoundsAccessor(Mapping[Hashable, xr.DataArray], Generic[T_Xarray]):
             If bounds do not exist for a specified key.
         """
         obj = self._obj.copy()
+        dangling = self._dangling_bounds_vars
 
         if not keys:
-            # default to all assigned bounds
-            variables = set(self)
+            # default to all assigned bounds, including any with
+            # dangling references
+            variables = set(self) | dangling
         else:
             variables = {resolve_variable_name(obj, key) for key in keys}
 
         bounds: set[str] = set()
         for variable in variables:
-            bounds |= set(self.variable_names[variable])
+            if (
+                variable not in self.variable_names
+                and variable not in dangling
+            ):
+                raise KeyError(f"no bounds found for variable: {variable!r}")
+            bounds |= set(self.variable_names.get(variable, ()))
             if "bounds" in obj[variable].attrs:
                 del obj[variable].attrs["bounds"]
-            if "bounds" in obj.cf[variable].encoding:
+            if "bounds" in obj[variable].encoding:
                 del obj[variable].encoding["bounds"]
         obj = obj.drop_vars(bounds)
         return obj
