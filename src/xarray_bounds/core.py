@@ -212,7 +212,7 @@ def bounds_to_interval(obj: xr.DataArray) -> pd.IntervalIndex:
             f"second dimension of obj must have size 2, got size {size}."
         )
 
-    closed = ClosedSide(obj.attrs.get("closed", "left"))
+    closed = ClosedSide(obj.attrs.get("closed", OPTIONS["interval_closed"]))
     dim = obj.dims[0]
 
     return pd.IntervalIndex.from_arrays(
