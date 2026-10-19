@@ -43,9 +43,7 @@ def resolve_variable_name(
         raise KeyError(f"no variable found for key {key!r}.")
 
 
-def resolve_axis_name(
-    obj: xr.Dataset | xr.DataArray, key: Hashable
-) -> Hashable:
+def resolve_axis_name(obj: xr.Dataset | xr.DataArray, key: Hashable) -> CFAxis:
     """Return the axis name for a given key.
 
     Parameters
@@ -58,8 +56,8 @@ def resolve_axis_name(
 
     Returns
     -------
-    Hashable
-        The axis name
+    CFAxis
+        The axis name (one of {"T", "X", "Y", "Z"}).
 
     Raises
     ------
@@ -68,13 +66,13 @@ def resolve_axis_name(
     """
     if key in obj.cf.axes:
         # key is already an axis name
-        return cast(str, key)
+        return cast(CFAxis, key)
 
     name = resolve_variable_name(obj, key)
 
     for axis, variables in obj.cf.axes.items():
         if name in variables:
-            return axis
+            return cast(CFAxis, axis)
 
     raise KeyError(f"No valid CF axis found for key {key!r}.")
 
