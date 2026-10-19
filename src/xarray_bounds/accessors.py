@@ -9,6 +9,7 @@ from xarray.core.types import T_Xarray
 from xarray_bounds._helpers import (
     mapping_or_kwargs,
     resolve_axis_name,
+    resolve_axis_overrides,
     resolve_variable_name,
 )
 from xarray_bounds.constants import IntervalClosed, IntervalLabel
@@ -40,6 +41,11 @@ class BoundsAccessor(Mapping[Hashable, xr.DataArray], Generic[T_Xarray]):
         obj : Dataset | DataArray
             The xarray object to add the bounds accessor to.
         """
+        # NOTE: (Mike) I think the copy here is unnecessary and a performance hit.
+        # All methods return copies of the object, so they are non-mutating.
+        # The copy-on-init here means we pay the price of copy **every** time the accessor is accessed.
+        # I think we can just drop the defensive copy here and enforce (by convention) that all
+        # public methods must be non-mutating.
         self._obj: T_Xarray = obj.copy(deep=False)
         self._data = {
             key: self._obj.coords[value[0]]
@@ -211,8 +217,8 @@ class BoundsAccessor(Mapping[Hashable, xr.DataArray], Generic[T_Xarray]):
     def add_bounds(
         self,
         *keys: str,
-        closed: IntervalClosed | None = None,
-        label: IntervalLabel | None = None,
+        closed: IntervalClosed | Mapping[str, IntervalClosed] | None = None,
+        label: IntervalLabel | Mapping[str, IntervalLabel] | None = None,
     ) -> T_Xarray:
         """Infer bounds for the specified variables and add them to this object.
 
@@ -272,13 +278,20 @@ class BoundsAccessor(Mapping[Hashable, xr.DataArray], Generic[T_Xarray]):
                 " You can try `obj.cf.guess_coord_axis()` to discover CF axis variables."
             )
 
+        closed_by_axis = resolve_axis_overrides(obj, closed)
+        label_by_axis = resolve_axis_overrides(obj, label)
+
         coords = {}
         # add bounds in the same order as their axes
         ordered = [a for a in obj.cf.axes if a in axes]
         for axis in ordered:
             if axis in self.axes:
                 raise ValueError(f"bounds already exist for axis: {axis!r}")
-            bounds = infer_bounds(obj=obj.cf[axis], closed=closed, label=label)
+            bounds = infer_bounds(
+                obj=obj.cf[axis],
+                closed=closed_by_axis.get(axis),
+                label=label_by_axis.get(axis),
+            )
             coords.update({bounds.name: bounds})
         return obj.assign_coords(coords)
 

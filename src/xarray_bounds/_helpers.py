@@ -6,12 +6,16 @@ for public use.
 
 from __future__ import annotations
 
+from collections import defaultdict
 from collections.abc import Hashable, Mapping
 from dataclasses import dataclass
 from typing import Any, Literal, TypeVar, cast
 
 import pandas as pd
 import xarray as xr
+
+from xarray_bounds.constants import IntervalClosed, IntervalLabel
+from xarray_bounds.types import CFAxis
 
 
 def resolve_variable_name(
@@ -75,6 +79,22 @@ def resolve_axis_name(obj: xr.Dataset | xr.DataArray, key: Hashable) -> CFAxis:
             return cast(CFAxis, axis)
 
     raise KeyError(f"No valid CF axis found for key {key!r}.")
+
+
+TEnum = TypeVar("TEnum", IntervalClosed, IntervalLabel)
+
+
+def resolve_axis_overrides(
+    obj: xr.Dataset | xr.DataArray,
+    value: TEnum | Mapping[str, TEnum] | None = None,
+) -> dict[str, TEnum | None]:
+    if value is None:
+        return {}
+    if isinstance(value, Mapping):
+        return {
+            resolve_axis_name(obj, key): value for key, value in value.items()
+        }
+    return defaultdict(lambda: value)
 
 
 @dataclass(frozen=True)

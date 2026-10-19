@@ -3,10 +3,10 @@ from typing import Any
 import cf_xarray  # noqa: F401
 import hypothesis as hp
 import hypothesis.strategies as st
-import numpy as np
 import pytest as pt
 import xarray as xr
 
+from xarray_bounds.constants import IntervalLabel
 from xarray_bounds.options import OPTIONS
 
 BOUNDS_NAME = OPTIONS["bounds_dim"]
@@ -204,7 +204,7 @@ class TestDatasetBoundsAccessor:
         ds_new = ds_no_bounds.bnds.assign_bounds(**{dim: ds.bnds[dim]})
         expected = ds.bnds[dim]
         actual = ds_new.bnds[dim]
-        np.testing.assert_array_equal(expected, actual)
+        xr.testing.assert_equal(expected, actual)
 
     @pt.mark.parametrize("dim", ["time", "T", "latitude", "Y", "lat"])
     def test_assign_bounds_assigns_attribute(
@@ -220,6 +220,50 @@ class TestDatasetBoundsAccessor:
     def test_raises_for_item_deletion(self, ds: xr.Dataset):
         with pt.raises(TypeError):
             del ds.bnds["lat"]
+
+    @pt.mark.parametrize("label", [None, {}])
+    def test_label_default_values(
+        self, ds: xr.DataArray, ds_no_bounds: xr.DataArray, label: None | dict
+    ):
+        actual = ds_no_bounds.bnds.add_bounds(label=label)
+        # Should fallback to `datetimeindex_to_interval` default for MS freq
+        xr.testing.assert_equal(ds.bnds["time"], actual.bnds["time"])
+
+    def test_label_with_no_keys(
+        self, ds: xr.DataArray, ds_no_bounds: xr.DataArray
+    ):
+        label_by_axis = {
+            "time": None,
+            "lat": IntervalLabel.MIDDLE,
+            "lon": IntervalLabel.RIGHT,
+        }
+        actual = ds_no_bounds.bnds.add_bounds(label=label_by_axis)
+        xr.testing.assert_equal(ds.bnds["time"], actual.bnds["time"])
+        # lat is left-lablled, so should fallback to default.
+        xr.testing.assert_equal(ds.bnds["lat"], actual.bnds["lat"])
+        xr.testing.assert_equal(ds.bnds["lon"], actual.bnds["lon"])
+
+    @pt.mark.parametrize("key", ["Y", "lat", "latitude"])
+    def test_label_supports_key_aliases(
+        self, ds: xr.DataArray, ds_no_bounds: xr.DataArray, key: str
+    ):
+        expected = ds.bnds["lat"]
+        actual = ds_no_bounds.bnds.add_bounds(
+            key, label={key: IntervalLabel.MIDDLE}
+        ).bnds["lat"]
+        xr.testing.assert_equal(expected, actual)
+
+    def test_unknown_label_key_raises_key_error(
+        self, ds_no_bounds: xr.DataArray
+    ):
+        with pt.raises(KeyError):
+            ds_no_bounds.bnds.add_bounds(label={"foo": IntervalLabel.RIGHT})
+
+    def test_invalid_label_value_raises_value_error(
+        self, ds_no_bounds: xr.DataArray
+    ):
+        with pt.raises(ValueError):
+            ds_no_bounds.bnds.add_bounds(label={"time": "bogus"})
 
 
 class TestDataArrayBoundsAccessor:
