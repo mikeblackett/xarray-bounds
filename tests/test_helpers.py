@@ -107,7 +107,7 @@ class TestOffsetAlias:
             ("W-TUE", True),
         ],
     )
-    def test_end_aligned_frequencies(self, freq: str, expected: bool):
+    def test_parsing_end_aligned_frequencies(self, freq: str, expected: bool):
         offset = OffsetAlias.from_freq(freq)
 
         assert offset.is_end_aligned is expected

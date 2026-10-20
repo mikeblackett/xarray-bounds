@@ -25,28 +25,25 @@ rng = np.random.default_rng(12345)
 
 
 class TestInferBounds:
-    def test_raises_if_object_not_1d(self):
+    def test_mutli_dimensional_index_raises_value_error(self):
         da = xr.DataArray.from_dict(
             {"dims": ("time", "vertical"), "data": rng.lognormal(size=(2, 2))}
         )
-        with pt.raises(
-            ValueError,
-            match="1-dimensional",
-        ):
+        with pt.raises(ValueError, match="1-dimensional"):
             infer_bounds(da)
 
     @hp.given(index=hpd.range_indexes(min_size=3))
-    def test_returns_array_with_shape_n_2(self, index: pd.Index):
+    def test_bounds_shape(self, index: pd.Index):
         # CF Conventions 7.1.1:
         # "For a one-dimensional coordinate variable of size N, the boundary
         # variable is an array of shape (N,2)."
         da = xr.DataArray(data=index, dims="dim")
-        bounds = infer_bounds(da)
-        n = len(da)
-        assert bounds.shape == (n, 2)
+        expected = (len(da), 2)
+        actual = infer_bounds(da).shape
+        assert actual == expected
 
     @hp.given(index=hpd.range_indexes(min_size=3))
-    def test_returns_cf_compliant_bounds(self, index: pd.Index):
+    def test_bounds_are_cf_compliant(self, index: pd.Index):
         # CF Conventions 7.1.1:
         # "The bounds for cell i are the elements B(i,0) and B(i,1) of the boundary variable B.
         # Element C(i) of the coordinate variable C should lie between the boundaries of the cell, or upon one of them
@@ -59,26 +56,33 @@ class TestInferBounds:
             assert np.sign(lower_diff) != np.sign(upper_diff)
 
     @hp.given(index=hpd.range_indexes(min_size=3))
-    def test_returns_array_with_attrs(self, index: pd.Index):
+    def test_closed_attr(self, index: pd.Index):
         da = xr.DataArray(data=index, dims="dim")
         bounds = infer_bounds(da)
         assert "closed" in bounds.attrs
 
     @hp.given(index=hpd.range_indexes(min_size=3))
-    def test_bounds_dim(self, index: pd.Index):
+    def test_cf_bounds_attr(self, index: pd.Index):
+        da = xr.DataArray(data=index, dims="time")
+        bounds = infer_bounds(da)
+        coord = bounds.coords["time"]
+        assert coord.attrs.get("bounds") == bounds.name
+
+    @hp.given(index=hpd.range_indexes(min_size=3))
+    def test_variable_name(self, index: pd.Index):
         da = xr.DataArray(data=index)
         bounds = infer_bounds(da)
         assert bounds.dims[1] == OPTIONS["bounds_dim"]
 
     @hp.given(dim=xrst.names(), index=hpd.range_indexes(min_size=4))
-    def test_bounds_name(self, dim: str, index: pd.Index):
+    def test_dim_name(self, dim: str, index: pd.Index):
         hp.assume(dim != OPTIONS["bounds_dim"])
         da = xr.DataArray(data=index, dims=dim)
         bounds = infer_bounds(da)
         assert bounds.name == f"{dim}_{OPTIONS['bounds_dim']}"
 
     @hp.given(index=hpd.range_indexes(min_size=3))
-    def test_original_object_is_assigned_as_coordinate(self, index: pd.Index):
+    def test_coordinate_equality(self, index: pd.Index):
         da = xr.DataArray(data=index, dims="time")
         bounds = infer_bounds(da)
         coord = bounds.coords["time"]
@@ -105,21 +109,13 @@ class TestInferBounds:
             min_size=3, name=st.just(OPTIONS["bounds_dim"])
         ),
     )
-    def test_raises_error_if_obj_has_same_name_as_vertext_dim(
-        self, index: pd.Index
-    ):
+    def test_name_conflict_raises_value_error(self, index: pd.Index):
+        # the variable name can't be the same as the bounds dimension name
         da = xr.DataArray(data=index)
         with pt.raises(ValueError):
             infer_bounds(da)
 
-    @hp.given(index=hpd.range_indexes(min_size=3))
-    def test_assigns_cf_bounds_attribute(self, index: pd.Index):
-        da = xr.DataArray(data=index, dims="time")
-        bounds = infer_bounds(da)
-        coord = bounds.coords["time"]
-        assert coord.attrs.get("bounds") == bounds.name
-
-    def test_datetime_end_aligned_defaults_to_right(self):
+    def test_datetime_end_aligned_defaults_to_right_interval(self):
         # Regression test: end-aligned frequencies (e.g. ME) must default
         # to right labels, so the bounds end on the index values.
         index = pd.date_range("2000-01-31", periods=3, freq="ME")
@@ -131,7 +127,7 @@ class TestInferBounds:
         np.testing.assert_array_equal(actual.right, index)
         assert bounds.attrs["closed"] == "right"
 
-    def test_datetime_start_aligned_defaults_to_left(self):
+    def test_datetime_start_aligned_defaults_to_left_interval(self):
         index = pd.date_range("2000-01-01", periods=3, freq="MS")
         da = xr.DataArray(data=index, dims="time")
         bounds = infer_bounds(da)
@@ -158,19 +154,19 @@ class TestInferBounds:
 
 class TestIntervalToBounds:
     @hp.given(closed=st.sampled_from(["both", "neither"]))
-    def test_raises_if_invalid_closed_attribute(
+    def test_invalid_closed_raises_value_error(
         self, closed: Literal["both", "neither"]
     ):
         interval = pd.interval_range(0, 10, periods=5, closed=closed)
         with pt.raises(ValueError):
             interval_to_bounds(interval)
 
-    def test_raises_if_no_dim_and_no_name(self):
+    def test_interval_with_no_name_or_dim_raises_value_error(self):
         interval = pd.interval_range(0, 10, periods=5)
         with pt.raises(ValueError):
             interval_to_bounds(interval)
 
-    def test_raises_dimension_name_conflict(self):
+    def test_dimension_name_conflict_raises_value_error(self):
         bounds_dim_name = OPTIONS["bounds_dim"]
         interval = pd.interval_range(
             0, 10, periods=5, closed="right", name=bounds_dim_name
@@ -178,14 +174,14 @@ class TestIntervalToBounds:
         with pt.raises(ValueError):
             interval_to_bounds(interval)
 
-    def test_returns_data_array_with_correct_shape(self):
+    def test_bounds_shape(self):
         interval = pd.interval_range(
             0, 10, periods=5, closed="left", name="interval"
         )
         bounds = interval_to_bounds(interval)
         assert bounds.shape == (5, 2)
 
-    def test_returns_data_array_with_correct_dims(self):
+    def test_bounds_dims(self):
         interval = pd.interval_range(
             0, 10, periods=5, closed="right", name="interval"
         )
@@ -200,14 +196,11 @@ class TestIntervalToBounds:
             ("interval", "dim", "name", "name"),
         ],
     )
-    def test_returns_data_array_with_correct_coordinate_name(
-        self, index_name, dim, name, expected
-    ):
+    def test_coordinate_assigned(self, index_name, dim, name, expected):
         interval = pd.interval_range(
             0, 10, periods=5, closed="right", name=index_name
         )
         bounds = interval_to_bounds(interval, dim=dim, name=name)
-
         assert expected in bounds.coords
 
     @pt.mark.parametrize(
@@ -218,9 +211,7 @@ class TestIntervalToBounds:
             ("interval", "dim", "name", "dim"),
         ],
     )
-    def test_returns_data_array_with_correct_dimension_name(
-        self, index_name, dim, name, expected
-    ):
+    def test_dim_name(self, index_name, dim, name, expected):
         interval = pd.interval_range(
             0, 10, periods=5, closed="right", name=index_name
         )
@@ -236,9 +227,7 @@ class TestIntervalToBounds:
             ("interval", "dim", "name", "name_bnds"),
         ],
     )
-    def test_returns_data_array_with_correct_bounds_name(
-        self, index_name, dim, name, expected
-    ):
+    def test_variable_name(self, index_name, dim, name, expected):
         with set_options(bounds_dim="bnds"):
             interval = pd.interval_range(
                 0, 10, periods=5, closed="right", name=index_name
@@ -248,7 +237,7 @@ class TestIntervalToBounds:
             assert bounds.name == expected
 
     @hp.given(closed=st.sampled_from(IntervalClosed))
-    def test_adds_closed_attribute(self, closed: IntervalClosed):
+    def test_closed_attribute(self, closed: IntervalClosed):
         interval = pd.interval_range(
             0, 10, periods=5, closed=closed.value, name="test"
         )
@@ -260,7 +249,7 @@ class TestIntervalToBounds:
         )
 
     @hp.given(name=xrst.names())
-    def test_adds_bounds_attribute(self, name: str):
+    def test_bounds_attribute(self, name: str):
         hp.assume(name != OPTIONS["bounds_dim"])
         interval = pd.interval_range(
             0, 10, periods=5, closed="right", name=name
@@ -275,7 +264,7 @@ class TestIntervalToBounds:
             [(0, 1), (1, 2), (2, 3)],
         ],
     )
-    def test_bounds_correctness(self, data: list):
+    def test_computes_bounds(self, data: list):
         interval = pd.IntervalIndex.from_tuples(data, name="test")
         bounds = interval_to_bounds(interval)
         expected = np.array(data)
@@ -289,7 +278,7 @@ class TestIntervalToBounds:
             ([(0, 1), (1, 2), (2, 3)], "middle", [0.5, 1.5, 2.5]),
         ],
     )
-    def test_coord_correctness(
+    def test_coordinate_equality(
         self, data: list, label: IntervalLabel, expected: list
     ):
         interval = pd.IntervalIndex.from_tuples(data, name="test")
@@ -306,13 +295,13 @@ class TestBoundsToInterval:
         interval = bounds_to_interval(bounds)
         assert interval.closed == "left"
 
-    def test_raises_if_not_2d(self):
+    def test_2_dimensional_array_raises_value_error(self):
         da = xr.DataArray.from_dict({"dims": "time", "data": range(10)})
         with pt.raises(ValueError, match="2-dimensional"):
             bounds_to_interval(da)
 
     @hp.given(index=hpd.range_indexes(min_size=3))
-    def test_returns_interval_index(self, index: pd.Index):
+    def test_return_type_is_interval_index(self, index: pd.Index):
         da = xr.DataArray(data=index)
         bounds = infer_bounds(da)
         interval_index = bounds_to_interval(bounds)
@@ -323,7 +312,7 @@ class TestBoundsToInterval:
         closed=st.sampled_from(IntervalClosed),
         label=st.sampled_from(IntervalLabel),
     )
-    def test_interval_index_correctness(
+    def test_computes_intervals(
         self, index: pd.Index, closed: IntervalClosed, label: IntervalLabel
     ):
         da = xr.DataArray(data=index)

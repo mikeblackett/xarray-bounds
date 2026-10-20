@@ -54,7 +54,7 @@ def index_dtypes(
 
 class TestInferInterval:
     @pt.mark.parametrize("is_datetime", [True, False])
-    def test_delegates_to_typed_implementation(
+    def test_index_dtypes_are_delegated(
         self, mocker: mk.MockerFixture, is_datetime: bool
     ):
         if is_datetime:
@@ -72,7 +72,7 @@ class TestInferInterval:
 
 class TestDatetimeToInterval:
     @hp.given(data=st.data())
-    def test_other_index_type_raises_type_error(
+    def test_incompatible_index_dtype_raises_type_error(
         self, data: st.DataObject
     ) -> None:
         dtype = data.draw(index_dtypes(exclude=["datetime"]))
@@ -111,7 +111,7 @@ class TestDatetimeToInterval:
         periods=st.integers(min_value=3, max_value=10),
         freq=st.sampled_from(FREQ),
     )
-    def test_regularly_spaced_index_is_converted(
+    def test_regularly_spaced_index(
         self,
         start: int,
         periods: int,
@@ -134,7 +134,7 @@ class TestDatetimeToInterval:
         periods=st.integers(min_value=4, max_value=10),
         freq=st.sampled_from(FREQ_START),
     )
-    def test_start_aligned_midpoint_index_is_converted(
+    def test_start_aligned_midpoint_index(
         self,
         start: int,
         periods: int,
@@ -158,7 +158,7 @@ class TestDatetimeToInterval:
         periods=st.integers(min_value=4, max_value=10),
         freq=st.sampled_from(FREQ_END),
     )
-    def test_end_aligned_midpoint_index_is_converted(
+    def test_end_aligned_midpoint_index(
         self,
         start: int,
         periods: int,
@@ -180,7 +180,7 @@ class TestDatetimeToInterval:
     @hp.given(
         name=st.one_of(st.none(), st.text()),
     )
-    def test_interval_has_correct_name(self, name: str | None) -> None:
+    def test_interval_name_is_assigned(self, name: str | None) -> None:
         index = pd.date_range(
             start="2000-01-01", periods=5, freq="D", name="time"
         )
@@ -195,7 +195,7 @@ class TestDatetimeToInterval:
         closed=st.sampled_from(IntervalClosed),
         label=st.sampled_from([IntervalLabel.LEFT, IntervalLabel.RIGHT]),
     )
-    def test_decreasing_regularly_spaced_index_is_converted(
+    def test_decreasing_regularly_spaced_index(
         self,
         start: int,
         periods: int,
@@ -232,7 +232,7 @@ class TestDatetimeToInterval:
         periods=st.integers(min_value=4, max_value=10),
         freq=st.sampled_from(FREQ_START),
     )
-    def test_decreasing_start_aligned_midpoint_index_is_converted(
+    def test_decreasing_start_aligned_midpoint_index(
         self,
         start: int,
         periods: int,
@@ -257,7 +257,7 @@ class TestDatetimeToInterval:
         periods=st.integers(min_value=4, max_value=10),
         freq=st.sampled_from(FREQ_END),
     )
-    def test_decreasing_end_aligned_midpoint_index_is_converted(
+    def test_decreasing_end_aligned_midpoint_index(
         self,
         start: int,
         periods: int,
@@ -277,7 +277,7 @@ class TestDatetimeToInterval:
         )
         np.testing.assert_array_equal(actual=actual, desired=expected)
 
-    def test_decreasing_midpoint_returns_correct_intervals(self):
+    def test_decreasing_midpoint(self):
         # Regression test: decreasing midpoint indices previously produced
         # duplicated and shifted intervals.
         expected = pd.interval_range(
@@ -328,7 +328,7 @@ class TestDatetimeToInterval:
 
 class TestInferMidpointFreq:
     @hp.given(data=st.data())
-    def test_other_index_type_raises_type_error(
+    def test_incompatible_index_dtype_raises_type_error(
         self, data: st.DataObject
     ) -> None:
         dtype = data.draw(index_dtypes(exclude=["datetime"]))
@@ -546,14 +546,14 @@ class TestIndexToInterval:
         np.testing.assert_array_equal(actual=actual, desired=expected)
 
     @hp.given(name=st.one_of(st.none(), st.text()))
-    def test_interval_has_correct_name(self, name: str | None) -> None:
+    def test_interval_name_is_assigned(self, name: str | None) -> None:
         index = pd.RangeIndex(start=0, stop=5, step=1, name="lat")
         expected = name or index.name
         interval = index_to_interval(index, name=name)
         assert interval.name == expected
 
 
-def test_left_from_freq_with_incompatible_freq_warns(recwarn):
+def test_left_from_freq_with_incompatible_freq_omits_warning(recwarn):
     real_offset = cast(pd.DateOffset, pd.tseries.offsets.MonthBegin())
     expected = pd.interval_range(
         start=pd.Timestamp("2000"),
@@ -569,7 +569,7 @@ def test_left_from_freq_with_incompatible_freq_warns(recwarn):
         _left_from_midpoint(index, test_offset)
 
 
-def test_left_from_freq_with_compatible_freq_does_not_warn(recwarn):
+def test_left_from_freq_with_compatible_freq_does_not_omit_warning(recwarn):
     offset = pd.tseries.offsets.MonthBegin()
     expected = pd.interval_range(
         start=pd.Timestamp("2000"),
